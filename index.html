@@ -25,6 +25,10 @@
             --header-bg: #8B4513;
             --header-text: #FFF;
             --promotion-bg: rgba(0, 0, 0, 0.7);
+            --chat-bg: #fff;
+            --chat-border: #ddd;
+            --chat-message-sent: #e1f5fe;
+            --chat-message-received: #f5f5f5;
         }
 
         * {
@@ -651,6 +655,128 @@
             color: #721c24;
         }
 
+        /* リマッチ対応 */
+        #rematch-controls {
+            display: none;
+            margin-top: 15px;
+            text-align: center;
+        }
+
+        #rematch-button {
+            width: 100%;
+            background-color: #4caf50;
+        }
+
+        #rematch-button:hover {
+            background-color: #45a049;
+        }
+
+        #rematch-status {
+            margin-top: 10px;
+            font-style: italic;
+            color: #666;
+        }
+
+        /* チャット機能のスタイル */
+        .chat-container {
+            background-color: var(--chat-bg);
+            border: 2px solid var(--board-border);
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-top: 20px;
+            width: 100%;
+            max-width: 400px;
+            display: none;
+        }
+
+        .chat-container h3 {
+            margin-bottom: 10px;
+            text-align: center;
+            color: var(--board-border);
+        }
+
+        .chat-messages {
+            height: 200px;
+            overflow-y: auto;
+            border: 1px solid var(--chat-border);
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 10px;
+            background-color: #fafafa;
+        }
+
+        .chat-message {
+            margin-bottom: 8px;
+            padding: 8px;
+            border-radius: 8px;
+            max-width: 80%;
+            word-break: break-word;
+        }
+
+        .chat-message.sent {
+            background-color: var(--chat-message-sent);
+            margin-left: auto;
+            border-bottom-right-radius: 0;
+        }
+
+        .chat-message.received {
+            background-color: var(--chat-message-received);
+            margin-right: auto;
+            border-bottom-left-radius: 0;
+        }
+
+        .chat-message-time {
+            font-size: 0.7em;
+            color: #888;
+            text-align: right;
+            margin-top: 2px;
+        }
+
+        .chat-input-container {
+            display: flex;
+            gap: 8px;
+        }
+
+        #chat-input {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid var(--chat-border);
+            border-radius: 4px;
+            font-size: 1em;
+        }
+
+        #chat-submit {
+            white-space: nowrap;
+            background-color: #4caf50;
+        }
+
+        #chat-submit:hover {
+            background-color: #45a049;
+        }
+
+        /* プリセットメッセージ */
+        .preset-messages {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-bottom: 10px;
+        }
+
+        .preset-message {
+            font-size: 0.8em;
+            padding: 5px 8px;
+            background-color: #f0f0f0;
+            border: 1px solid #ddd;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .preset-message:hover {
+            background-color: #e0e0e0;
+        }
+
         /* モバイル対応 */
         @media (max-width: 768px) {
             .game-container {
@@ -685,6 +811,10 @@
 
             .rules-container {
                 width: 100%;
+            }
+
+            .chat-container {
+                max-width: 100%;
             }
         }
 
@@ -739,6 +869,26 @@
         </div>
         <div id="turn-indicator" class="turn-indicator" style="display: none;">
             待機中...
+        </div>
+        <div id="rematch-controls" style="display: none;">
+            <button id="rematch-button">リマッチを申し込む</button>
+            <div id="rematch-status"></div>
+        </div>
+    </div>
+
+    <div class="chat-container" id="chat-container">
+        <h3>チャット</h3>
+        <div class="preset-messages">
+            <div class="preset-message">よろしくお願いします</div>
+            <div class="preset-message">いい勝負でした</div>
+            <div class="preset-message">考え中です</div>
+            <div class="preset-message">ありがとうございました</div>
+            <div class="preset-message">また対戦しましょう</div>
+        </div>
+        <div class="chat-messages" id="chat-messages"></div>
+        <div class="chat-input-container">
+            <input type="text" id="chat-input" placeholder="メッセージを入力...">
+            <button id="chat-submit">送信</button>
         </div>
     </div>
 
@@ -821,6 +971,8 @@
                 <li>表示されたゲームコードを相手に伝える</li>
                 <li>相手は「部屋に参加」をクリックし、ゲームコードを入力して参加</li>
                 <li>先手（部屋作成者）から開始</li>
+                <li>ゲーム終了後、「リマッチを申し込む」ボタンでもう一度対戦できます</li>
+                <li>チャット機能を使って対戦相手とコミュニケーションが取れます</li>
             </ul>
 
             <h3>主な駒の動き:</h3>
@@ -901,7 +1053,7 @@
     </div>
 
     <script>
-        // Firebase設定（この設定を実際のFirebase設定に置き換えてください）
+        // Firebase設定
         const firebaseConfig = {
             apiKey: "AIzaSyAjVQZN--ODV3u-LpDtAUEw1PDoqeapCO8",
             authDomain: "summon-shogi.firebaseapp.com",
@@ -921,6 +1073,8 @@
         let gameId = null;
         let playerRole = null; // 'sente'または'gote'
         let opponentConnected = false;
+        let rematchOffered = false;
+        let rematchAccepted = false;
 
         // ゲームの状態を管理
         const gameState = {
@@ -1066,6 +1220,18 @@
         const joinSubmitButton = document.getElementById('join-submit');
         const turnIndicator = document.getElementById('turn-indicator');
 
+        // リマッチ用のUI要素
+        const rematchControls = document.getElementById('rematch-controls');
+        const rematchButton = document.getElementById('rematch-button');
+        const rematchStatus = document.getElementById('rematch-status');
+
+        // チャット機能用のUI要素
+        const chatContainer = document.getElementById('chat-container');
+        const chatMessages = document.getElementById('chat-messages');
+        const chatInput = document.getElementById('chat-input');
+        const chatSubmit = document.getElementById('chat-submit');
+        const presetMessages = document.querySelectorAll('.preset-message');
+
         // オンライン対戦イベントリスナー
         createGameButton.addEventListener('click', createGameRoom);
         joinGameButton.addEventListener('click', () => {
@@ -1080,6 +1246,25 @@
             } else {
                 alert('有効なゲームコード（6文字）を入力してください');
             }
+        });
+
+        // リマッチボタンイベントリスナー
+        rematchButton.addEventListener('click', offerRematch);
+
+        // チャット機能イベントリスナー
+        chatSubmit.addEventListener('click', sendChatMessage);
+        chatInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendChatMessage();
+            }
+        });
+
+        // プリセットメッセージのイベントリスナー
+        presetMessages.forEach(msg => {
+            msg.addEventListener('click', () => {
+                chatInput.value = msg.textContent;
+                sendChatMessage();
+            });
         });
 
         // ルールの表示/非表示
@@ -1138,6 +1323,110 @@
             return;
         }
 
+        // チャットメッセージを送信
+        function sendChatMessage() {
+            if (!isOnlineGame || !gameId) return;
+
+            const message = chatInput.value.trim();
+            if (message === '') return;
+
+            const timestamp = Date.now();
+            const sender = playerRole;
+
+            // メッセージをFirebaseに保存
+            database.ref(`games/${gameId}/chat/${timestamp}`).set({
+                message,
+                sender,
+                timestamp
+            });
+
+            // 入力欄をクリア
+            chatInput.value = '';
+
+            // UIに自分のメッセージを表示
+            displayChatMessage(message, sender, timestamp);
+        }
+
+        // チャットメッセージを表示
+        function displayChatMessage(message, sender, timestamp) {
+            const messageEl = document.createElement('div');
+            messageEl.className = `chat-message ${sender === playerRole ? 'sent' : 'received'}`;
+
+            const textEl = document.createElement('div');
+            textEl.textContent = message;
+
+            const timeEl = document.createElement('div');
+            timeEl.className = 'chat-message-time';
+
+            // タイムスタンプを整形
+            const date = new Date(timestamp);
+            const hours = date.getHours().toString().padStart(2, '0');
+            const minutes = date.getMinutes().toString().padStart(2, '0');
+            timeEl.textContent = `${hours}:${minutes}`;
+
+            messageEl.appendChild(textEl);
+            messageEl.appendChild(timeEl);
+
+            chatMessages.appendChild(messageEl);
+
+            // 最新のメッセージが見えるようにスクロール
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // リマッチを申し込む
+        function offerRematch() {
+            if (!isOnlineGame || !gameId) return;
+
+            rematchButton.disabled = true;
+            rematchStatus.textContent = 'リマッチを申し込み中...';
+
+            // リマッチ情報をFirebaseに保存
+            database.ref(`games/${gameId}/rematch/${playerRole}`).set(true);
+
+            // 相手のリマッチ受諾状態をチェック
+            const opponentRole = playerRole === 'sente' ? 'gote' : 'sente';
+            database.ref(`games/${gameId}/rematch/${opponentRole}`).once('value')
+                .then((snapshot) => {
+                    if (snapshot.exists() && snapshot.val() === true) {
+                        // 両者がリマッチを希望
+                        startRematch();
+                    }
+                });
+        }
+
+        // リマッチを開始
+        function startRematch() {
+            rematchStatus.textContent = 'リマッチが成立しました！新しいゲームを開始します...';
+
+            // リマッチフラグをリセット
+            database.ref(`games/${gameId}/rematch`).remove();
+
+            // 新しいゲームを開始（ただし同じ部屋）
+            initGame();
+
+            // 役割を入れ替え（先手・後手を交代）
+            if (playerRole === 'sente') {
+                playerRole = 'gote';
+                playerRoleElement.textContent = '後手（白）';
+            } else {
+                playerRole = 'sente';
+                playerRoleElement.textContent = '先手（黒）';
+            }
+
+            // ゲーム状態をFirebaseに初期化
+            syncGameState();
+
+            // リマッチコントロールを更新
+            setTimeout(() => {
+                rematchButton.disabled = false;
+                rematchStatus.textContent = '';
+                rematchControls.style.display = 'none';
+            }, 3000);
+
+            // 状態を更新
+            updateTurnIndicator();
+        }
+
         // オンラインゲームルームを作成（先手として）
         function createGameRoom() {
             // ランダムな6文字のコードを生成
@@ -1164,6 +1453,11 @@
             database.ref(`games/${gameId}/players/gote`).on('value', (snapshot) => {
                 opponentConnected = snapshot.exists();
                 updateTurnIndicator();
+
+                // 対戦相手が接続したらチャット機能を有効化
+                if (opponentConnected) {
+                    chatContainer.style.display = 'block';
+                }
             });
 
             // 自分の接続状態を記録
@@ -1174,6 +1468,12 @@
 
             // ゲーム状態の変更を監視
             listenForGameChanges();
+
+            // チャットメッセージの監視
+            listenForChatMessages();
+
+            // リマッチ申し込みの監視
+            listenForRematchOffers();
 
             // UI更新
             gameCodeElement.textContent = gameId;
@@ -1224,10 +1524,21 @@
                         database.ref(`games/${gameId}/players/sente`).on('value', (snapshot) => {
                             opponentConnected = snapshot.exists();
                             updateTurnIndicator();
+
+                            // 対戦相手が接続したらチャット機能を有効化
+                            if (opponentConnected) {
+                                chatContainer.style.display = 'block';
+                            }
                         });
 
                         // ゲーム状態の変更を監視
                         listenForGameChanges();
+
+                        // チャットメッセージの監視
+                        listenForChatMessages();
+
+                        // リマッチ申し込みの監視
+                        listenForRematchOffers();
 
                         // UI更新
                         gameCodeElement.textContent = gameId;
@@ -1275,6 +1586,8 @@
                 // UI更新
                 gameInfoElement.style.display = 'none';
                 turnIndicator.style.display = 'none';
+                rematchControls.style.display = 'none';
+                chatContainer.style.display = 'none';
                 createGameButton.disabled = false;
                 joinGameButton.disabled = false;
             }
@@ -1318,6 +1631,44 @@
                     renderSummonPool();
                     updateStatus();
                     updateCounters();
+
+                    // ゲーム終了時はリマッチコントロールを表示
+                    if (gameState.gameOver) {
+                        rematchControls.style.display = 'block';
+                    }
+                }
+            });
+        }
+
+        // チャットメッセージを監視
+        function listenForChatMessages() {
+            database.ref(`games/${gameId}/chat`).on('child_added', (snapshot) => {
+                const message = snapshot.val();
+
+                // 自分が送信したメッセージは既に表示済みなのでスキップ
+                if (message.sender !== playerRole) {
+                    displayChatMessage(message.message, message.sender, message.timestamp);
+                }
+            });
+        }
+
+        // リマッチ申し込みを監視
+        function listenForRematchOffers() {
+            const opponentRole = playerRole === 'sente' ? 'gote' : 'sente';
+
+            database.ref(`games/${gameId}/rematch/${opponentRole}`).on('value', (snapshot) => {
+                if (snapshot.exists() && snapshot.val() === true) {
+                    // 相手からリマッチ申し込みが来た
+                    rematchStatus.textContent = '相手からリマッチの申し込みがあります';
+                    rematchControls.style.display = 'block';
+
+                    // 自分もリマッチを申し込んでいる場合は開始
+                    database.ref(`games/${gameId}/rematch/${playerRole}`).once('value')
+                        .then((mySnapshot) => {
+                            if (mySnapshot.exists() && mySnapshot.val() === true) {
+                                startRematch();
+                            }
+                        });
                 }
             });
         }
@@ -1370,6 +1721,9 @@
                 const winnerText = gameState.winner === 'sente' ? '先手' : '後手';
                 turnIndicator.textContent = `ゲーム終了 - ${winnerText}の勝利`;
                 turnIndicator.className = 'turn-indicator';
+
+                // ゲーム終了時はリマッチコントロールを表示
+                rematchControls.style.display = 'block';
                 return;
             }
 
@@ -1915,6 +2269,9 @@
             // オンライン対戦の場合は状態を同期
             if (isOnlineGame) {
                 syncGameState();
+
+                // リマッチコントロールを表示
+                rematchControls.style.display = 'block';
             }
 
             // ターン表示を更新
@@ -2177,7 +2534,6 @@
                         break;
                     }
 
-                    // 王手チェック時は相手の駒を取れるか確認のみ
                     // 王手チェック時は相手の駒を取れるか確認のみ
                     if (checkingAttack) {
                         moves.push({ x: newX, y: newY });
