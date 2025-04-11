@@ -1603,7 +1603,7 @@
             }
             return result;
         }
-        
+
         // 効果音を無効化（ブラウザの互換性問題を回避）
         const sounds = {
             move: null,
@@ -2241,18 +2241,46 @@
         // データベースに保存
         firebase.database().ref(`games/${gameId}`).set(gameData)
             .then(() => {
-            console.log('部屋を作成しました:', gameId);
+                console.log('部屋を作成しました:', gameId);
 
-            // 部屋への参照を維持する
-            listenForGameChanges(gameId);
+                // グローバル変数に代入しておく（あとで参照するため）
+                isOnlineGame = true;
+                playerRole = 'sente';
+                gameId = gameId; // すでに定義済みでも明示的に再代入しておく
 
-            // ローカルストレージに保存して再接続時に復帰できるようにする
-            localStorage.setItem('currentGameId', gameId);
-            localStorage.setItem('playerRole', 'sente');
+                // プレイヤー情報の保存
+                database.ref(`games/${gameId}/players/sente`).set({
+                    uid: user.uid,
+                    nickname: userNickname,
+                    connected: true
+                });
+
+                // 接続解除時に削除
+                database.ref(`games/${gameId}/players/sente`).onDisconnect().remove();
+
+                // 公開ゲームとしてリストに追加
+                database.ref(`publicGames/${gameId}`).set({
+                    host: userNickname,
+                    createdAt: firebase.database.ServerValue.TIMESTAMP
+                });
+
+                // UIを更新
+                gameCodeElement.textContent = gameId;
+                playerRoleElement.textContent = '先手（黒）';
+                gameInfoElement.style.display = 'block';
+                turnIndicator.style.display = 'block';
+                updateTurnIndicator();
+
+                // ローカルストレージに保存して復帰できるように
+                localStorage.setItem('currentGameId', gameId);
+                localStorage.setItem('playerRole', 'sente');
+
+                // リスナーを設定
+                listenForGameChanges(gameId);
             })
             .catch(error => {
-            console.error('部屋の作成に失敗しました:', error);
-            alert('部屋の作成に失敗しました');
+                console.error('部屋の作成に失敗しました:', error);
+                alert('部屋の作成に失敗しました');
             });
         }
 
