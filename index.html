@@ -2226,15 +2226,15 @@
         // 部屋データの構造を修正
         const gameData = {
             createdAt: firebase.database.ServerValue.TIMESTAMP,
-            status: 'waiting',
+            status: "waiting",
+            turn: "sente",
             players: {
-            sente: {
-                uid: user.uid,
-                nickname: userNickname,
-                connected: true
-            }
+                sente: {
+                    uid: user.uid,
+                    nickname: userNickname,
+                    connected: true
+                }
             },
-            // 初期盤面データも設定
             board: initialBoardState()
         };
 
