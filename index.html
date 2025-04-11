@@ -2356,10 +2356,10 @@
                             return obj;
                         }
 
-                        gameState.board = safeParse(data.board);
-                        gameState.senteHand = safeParse(data.senteHand);
-                        gameState.goteHand = safeParse(data.goteHand);
-                        gameState.summonPool = safeParse(data.summonPool);
+                        gameState.board = safeParse(data.board) || Array.from({ length: 9 }, () => Array(9).fill(null));
+                        gameState.senteHand = safeParse(data.senteHand) || [];
+                        gameState.goteHand = safeParse(data.goteHand) || [];
+                        gameState.summonPool = safeParse(data.summonPool) || [];
                         gameState.currentTurn = data.currentTurn;
                         gameState.hasSummoned = data.hasSummoned;
                         gameState.gameOver = data.gameOver || false;
