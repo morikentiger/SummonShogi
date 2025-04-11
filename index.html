@@ -2543,7 +2543,8 @@
                     mustPlaceLastSummoned: gameState.mustPlaceLastSummoned,
                     gameOver: gameState.gameOver,
                     winner: gameState.winner,
-                    lastUpdate: gameState.lastUpdate
+                    lastUpdate: gameState.lastUpdate,
+                    captured: JSON.stringify({ sente: gameState.senteHand, gote: gameState.goteHand })
                 });
 
                 updateTurnIndicator();
