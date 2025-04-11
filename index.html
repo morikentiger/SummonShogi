@@ -1595,6 +1595,15 @@
             nicknameInput.focus();
         }
 
+        function generateRandomId() {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+            let result = '';
+            for (let i = 0; i < 6; i++) {
+                result += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return result;
+        }
+        
         // 効果音を無効化（ブラウザの互換性問題を回避）
         const sounds = {
             move: null,
