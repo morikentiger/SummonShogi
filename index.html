@@ -1571,6 +1571,42 @@
         const userAvatar = document.getElementById('user-avatar');
         const userNicknameElement = document.getElementById('user-nickname');
 
+        // HTMLファイルに追加するJavaScriptコード
+        document.addEventListener('DOMContentLoaded', function() {
+        // ログインボタンの処理
+        const loginButton = document.querySelector('button');
+        if (loginButton) {
+            loginButton.addEventListener('click', function() {
+            const nicknameInput = document.querySelector('input').value;
+
+            if (!nicknameInput || nicknameInput.length < 2) {
+                alert('ニックネームは2文字以上入力してください');
+                return;
+            }
+
+            // 匿名認証でログイン
+            firebase.auth().signInAnonymously()
+                .then((userCredential) => {
+                const user = userCredential.user;
+                // ユーザー情報を保存
+                return firebase.database().ref('users/' + user.uid).set({
+                    nickname: nicknameInput,
+                    createdAt: firebase.database.ServerValue.TIMESTAMP
+                });
+                })
+                .then(() => {
+                console.log('ログイン成功');
+                // ログイン後の処理（モーダルを閉じるなど）
+                document.querySelector('.modal').style.display = 'none';
+                })
+                .catch((error) => {
+                console.error('ログインエラー:', error);
+                alert('ログインに失敗しました: ' + error.message);
+                });
+            });
+        }
+        });
+
         // ページ読み込み時に実行
         document.addEventListener('DOMContentLoaded', () => {
             // localStorageからユーザー情報を取得
