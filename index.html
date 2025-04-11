@@ -2220,7 +2220,7 @@
             return;
         }
 
-        const gameId = generateRandomId(); // または既存のコード方式
+        gameId = generateRandomId(); // または既存のコード方式
         const userNickname = localStorage.getItem('userNickname') || '匿名プレイヤー';
 
         // 部屋データの構造を修正
