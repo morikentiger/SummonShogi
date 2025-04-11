@@ -2360,9 +2360,11 @@
                         gameState.senteHand = safeParse(data.senteHand) || [];
                         gameState.goteHand = safeParse(data.goteHand) || [];
                         gameState.summonPool = safeParse(data.summonPool) || [];
-                        gameState.currentTurn = data.currentTurn;
-                        gameState.hasSummoned = data.hasSummoned;
+                        gameState.currentTurn = data.currentTurn || 'sente';
+                        gameState.hasSummoned = data.hasSummoned || false;
+                        gameState.mustPlaceLastSummoned = data.mustPlaceLastSummoned || false;
                         gameState.gameOver = data.gameOver || false;
+                        gameState.winner = data.winner || null;
 
                         // UI更新
                         renderBoard();
