@@ -2344,10 +2344,22 @@
                         const data = snapshot.val();
 
                         // ゲーム状態を反映
-                        gameState.board = JSON.parse(data.board);
-                        gameState.senteHand = JSON.parse(data.senteHand);
-                        gameState.goteHand = JSON.parse(data.goteHand);
-                        gameState.summonPool = JSON.parse(data.summonPool);
+                        function safeParse(obj) {
+                            if (typeof obj === 'string') {
+                                try {
+                                    return JSON.parse(obj);
+                                } catch (e) {
+                                    console.error('JSONパースエラー:', e);
+                                    return null;
+                                }
+                            }
+                            return obj;
+                        }
+
+                        gameState.board = safeParse(data.board);
+                        gameState.senteHand = safeParse(data.senteHand);
+                        gameState.goteHand = safeParse(data.goteHand);
+                        gameState.summonPool = safeParse(data.summonPool);
                         gameState.currentTurn = data.currentTurn;
                         gameState.hasSummoned = data.hasSummoned;
                         gameState.gameOver = data.gameOver || false;
