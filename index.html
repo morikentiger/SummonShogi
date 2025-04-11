@@ -1132,8 +1132,8 @@
     </style>
 
     <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <!-- <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script> -->
 </head>
 <body>
     <div class="header">
@@ -1596,9 +1596,10 @@
         const userAvatar = document.getElementById('user-avatar');
         const userNicknameElement = document.getElementById('user-nickname');
 
-        // HTMLファイルに追加するJavaScriptコード
+        // HTML内のscriptタグに追加
         document.addEventListener('DOMContentLoaded', function() {
-        const loginButton = document.querySelector('#loginButton');
+        const loginButton = document.querySelector('#loginButton, button');
+
         if (loginButton) {
             loginButton.addEventListener('click', function() {
             const nicknameInput = document.querySelector('input').value;
@@ -1608,22 +1609,22 @@
                 return;
             }
 
-            // 匿名認証を先に実行
+            // 匿名認証を使用
             firebase.auth().signInAnonymously()
                 .then((userCredential) => {
                 const user = userCredential.user;
-                localStorage.setItem('userId', user.uid);
-                localStorage.setItem('userNickname', nicknameInput);
 
-                // ユーザー情報を保存
+                // ユーザー情報の保存
                 return firebase.database().ref('users/' + user.uid).set({
                     nickname: nicknameInput,
-                    createdAt: firebase.database.ServerValue.TIMESTAMP
+                    lastLogin: firebase.database.ServerValue.TIMESTAMP
                 });
                 })
                 .then(() => {
-                console.log('ログイン成功');
-                // モーダルを閉じる処理
+                console.log('ログイン成功!');
+                // ニックネームをローカルストレージに保存
+                localStorage.setItem('userNickname', nicknameInput);
+                // モーダルを閉じる
                 document.querySelector('.modal').style.display = 'none';
                 })
                 .catch((error) => {
@@ -1633,6 +1634,7 @@
             });
         }
         });
+
 
         // ページ読み込み時に実行
         document.addEventListener('DOMContentLoaded', () => {
