@@ -2305,21 +2305,18 @@
 
         function initialBoardState() {
         return {
-            // 段（横列）を1〜9、筋（縦列）をa〜iで表現
             ranks: {
-            1: {
-                e: { type: '王将', owner: 'sente' }
+                1: {
+                    e: { type: '王将', owner: 'sente' }
+                },
+                9: {
+                    e: { type: '王将', owner: 'gote' }
+                }
             },
-            9: {
-                e: { type: '王将', owner: 'gote' }
-            }
-            },
-            // 持ち駒情報
             captured: {
-            sente: [],
-            gote: []
+                sente: [],
+                gote: []
             },
-            // 手番（初期値は先手）
             turn: 'sente'
         };
         }
