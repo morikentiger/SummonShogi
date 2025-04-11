@@ -1392,6 +1392,15 @@
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
 
+        // Firebaseの初期化コード内または直後に追加
+        firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL)
+        .then(() => {
+            console.log('認証の永続化を設定しました');
+        })
+        .catch((error) => {
+            console.error('認証の永続化の設定に失敗しました:', error);
+        });
+
         // 認証状態の監視（デバッグ用）
         firebase.auth().onAuthStateChanged(function(user) {
             console.log("認証状態:", user ? "認証済み" : "未認証");
@@ -1413,31 +1422,54 @@
 
         // ページ読み込み時に実行
         document.addEventListener('DOMContentLoaded', function() {
-        // Firebase認証状態の監視
-        firebase.auth().onAuthStateChanged(function(user) {
-            if (user) {
-            console.log('ログイン済み:', user.uid);
+            // Firebase認証状態の監視
+            firebase.auth().onAuthStateChanged(function(user) {
+                if (user) {
+                console.log('ログイン済み:', user.uid);
 
-            // 前回の対局があれば復帰
-            const savedGameId = localStorage.getItem('currentGameId');
-            const playerRole = localStorage.getItem('playerRole');
+                // 前回の対局があれば復帰
+                const savedGameId = localStorage.getItem('currentGameId');
+                const playerRole = localStorage.getItem('playerRole');
 
-            if (savedGameId) {
-                // 対局が存在するか確認
-                firebase.database().ref(`games/${savedGameId}`).once('value')
-                .then(snapshot => {
-                    if (snapshot.exists()) {
-                    console.log('前回の対局に復帰します:', savedGameId);
-                    listenForGameChanges(savedGameId);
-                    } else {
-                    // 対局が見つからない場合はローカルストレージをクリア
-                    localStorage.removeItem('currentGameId');
-                    localStorage.removeItem('playerRole');
-                    }
-                });
-            }
-            }
+                if (savedGameId) {
+                    // 対局が存在するか確認
+                    firebase.database().ref(`games/${savedGameId}`).once('value')
+                    .then(snapshot => {
+                        if (snapshot.exists()) {
+                        console.log('前回の対局に復帰します:', savedGameId);
+                        listenForGameChanges(savedGameId);
+                        } else {
+                        // 対局が見つからない場合はローカルストレージをクリア
+                        localStorage.removeItem('currentGameId');
+                        localStorage.removeItem('playerRole');
+                        }
+                    });
+                }
+                }
+            });
         });
+
+
+        // DOMContentLoaded内に追加
+        firebase.auth().onAuthStateChanged((user) => {
+        console.log('認証状態が変更されました:', user ? 'ログイン中' : '未ログイン');
+
+        if (user) {
+            // ユーザーがログインしている場合
+            const userNickname = localStorage.getItem('userNickname');
+            console.log('ログイン中のユーザー:', user.uid, 'ニックネーム:', userNickname);
+
+            // ニックネームが取得できない場合は再入力を促す
+            if (!userNickname || userNickname.length < 2) {
+            showNicknameModal();
+            }
+        } else {
+            // 未ログイン状態の場合、匿名ログインを自動実行
+            firebase.auth().signInAnonymously()
+            .catch((error) => {
+                console.error('匿名ログインに失敗しました:', error);
+            });
+        }
         });
 
 
@@ -1627,42 +1659,79 @@
 
         // HTML内のscriptタグに追加
         document.addEventListener('DOMContentLoaded', function() {
-        const loginButton = document.querySelector('#loginButton, button');
+            const loginButton = document.querySelector('#loginButton') || document.querySelector('button');
 
-        if (loginButton) {
-            loginButton.addEventListener('click', function() {
-            const nicknameInput = document.querySelector('input').value;
+            if (loginButton) {
+                loginButton.addEventListener('click', function() {
+                const nicknameInput = document.querySelector('input').value;
 
-            if (!nicknameInput || nicknameInput.trim().length < 2) {
-                alert('ニックネームは2文字以上入力してください');
-                return;
+                if (!nicknameInput || nicknameInput.trim().length < 2) {
+                    alert('ニックネームは2文字以上入力してください');
+                    return;
+                }
+
+                // 匿名認証でログイン（既にログイン済みでも再実行して確実にする）
+                firebase.auth().signInAnonymously()
+                    .then((userCredential) => {
+                    const user = userCredential.user;
+                    localStorage.setItem('userNickname', nicknameInput);
+
+                    // ユーザー情報をデータベースに保存
+                    return firebase.database().ref('users/' + user.uid).set({
+                        nickname: nicknameInput,
+                        lastLoginAt: firebase.database.ServerValue.TIMESTAMP
+                    });
+                    })
+                    .then(() => {
+                    console.log('ログイン成功！');
+                    // モーダルを閉じる処理
+                    const modal = document.querySelector('.modal');
+                    if (modal) modal.style.display = 'none';
+                    })
+                    .catch((error) => {
+                    console.error('ログインエラー:', error);
+                    alert('ログインに失敗しました: ' + error.message);
+                    });
+                });
             }
-
-            // 匿名認証を使用
-            firebase.auth().signInAnonymously()
-                .then((userCredential) => {
-                const user = userCredential.user;
-
-                // ユーザー情報の保存
-                return firebase.database().ref('users/' + user.uid).set({
-                    nickname: nicknameInput,
-                    lastLogin: firebase.database.ServerValue.TIMESTAMP
-                });
-                })
-                .then(() => {
-                console.log('ログイン成功!');
-                // ニックネームをローカルストレージに保存
-                localStorage.setItem('userNickname', nicknameInput);
-                // モーダルを閉じる
-                document.querySelector('.modal').style.display = 'none';
-                })
-                .catch((error) => {
-                console.error('ログインエラー:', error);
-                alert('ログインに失敗しました');
-                });
-            });
-        }
+            // 部屋作成ボタンのイベントリスナー追加
+            const createButton = document.querySelector('.部屋を作成する, #createRoomButton');
+            if (createButton) {
+                createButton.addEventListener('click', handleRoomCreation);
+            }
         });
+
+        // イベントハンドラを関数として定義
+        function handleRoomCreation() {
+        const user = firebase.auth().currentUser;
+        const userNickname = localStorage.getItem('userNickname');
+
+        if (!user) {
+            console.error('ユーザーがログインしていません');
+            firebase.auth().signInAnonymously()
+            .then(() => {
+                if (userNickname && userNickname.length >= 2) {
+                setTimeout(createRoom, 500);
+                } else {
+                alert('ログインが必要です。ニックネームを入力してください。');
+                showNicknameModal();
+                }
+            })
+            .catch(error => {
+                console.error('再ログインに失敗:', error);
+                alert('ログインに失敗しました。再読み込みしてお試しください。');
+            });
+            return;
+        }
+
+        if (!userNickname || userNickname.length < 2) {
+            alert('ニックネームは2文字以上入力してください');
+            showNicknameModal();
+            return;
+        }
+
+        createRoom();
+        }
 
 
         // ページ読み込み時に実行
