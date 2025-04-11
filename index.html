@@ -1493,7 +1493,7 @@
             selectedPiece: null,
             selectedCell: null,
             possibleMoves: [],
-            board: Array(9).fill().map(() => Array(9).fill(null)),
+            board: Array.from({ length: 9 }, () => Array(9).fill(null)),
             senteHand: [],
             goteHand: [],
             summonPool: [],
@@ -2472,7 +2472,7 @@
 
                 // 自分のターンでない場合のみ状態を更新
                 if (!isMyTurn() || data.lastUpdate > (gameState.lastUpdate || 0)) {
-                    gameState.board = JSON.parse(data.board);
+                    gameState.board = JSON.parse(data.board ?? 'null') || Array.from({ length: 9 }, () => Array(9).fill(null));
                     gameState.senteHand = JSON.parse(data.senteHand);
                     gameState.goteHand = JSON.parse(data.goteHand);
                     gameState.summonPool = JSON.parse(data.summonPool);
@@ -2693,7 +2693,7 @@
 
                     // 駒があれば表示
                     const piece = gameState.board[y][x];
-                    if (piece) {
+                    if (piece && piece.type) {
                         const pieceElement = document.createElement('div');
                         pieceElement.className = `piece ${piece.owner}`;
                         if (gameState.selectedCell && gameState.selectedCell.x === x && gameState.selectedCell.y === y) {
