@@ -1411,6 +1411,35 @@
         });
         }
 
+        // ページ読み込み時に実行
+        document.addEventListener('DOMContentLoaded', function() {
+        // Firebase認証状態の監視
+        firebase.auth().onAuthStateChanged(function(user) {
+            if (user) {
+            console.log('ログイン済み:', user.uid);
+
+            // 前回の対局があれば復帰
+            const savedGameId = localStorage.getItem('currentGameId');
+            const playerRole = localStorage.getItem('playerRole');
+
+            if (savedGameId) {
+                // 対局が存在するか確認
+                firebase.database().ref(`games/${savedGameId}`).once('value')
+                .then(snapshot => {
+                    if (snapshot.exists()) {
+                    console.log('前回の対局に復帰します:', savedGameId);
+                    listenForGameChanges(savedGameId);
+                    } else {
+                    // 対局が見つからない場合はローカルストレージをクリア
+                    localStorage.removeItem('currentGameId');
+                    localStorage.removeItem('playerRole');
+                    }
+                });
+            }
+            }
+        });
+        });
+
 
         // オンライン対戦用の変数
         let isOnlineGame = false;
@@ -2096,92 +2125,93 @@
             updateTurnIndicator();
         }
 
-        // オンラインゲームルームを作成（先手として）
+        // 部屋作成関数
         function createGameRoom() {
-            if (!isLoggedIn) {
-                showLoginModal();
-                return;
-            }
+        // 認証状態の確認
+        const user = firebase.auth().currentUser;
+        if (!user) {
+            console.error('ユーザーがログインしていません');
+            alert('ログインが必要です');
+            return;
+        }
 
-            // ランダムな6文字のコードを生成
-            gameId = Math.random().toString(36).substring(2, 8).toUpperCase();
-            playerRole = 'sente';
-            isOnlineGame = true;
+        const gameId = generateRandomId(); // または既存のコード方式
+        const userNickname = localStorage.getItem('userNickname') || '匿名プレイヤー';
 
-            // ゲームを初期化
-            initGame();
-
-            // ゲーム状態をFirebaseに初期化
-            database.ref(`games/${gameId}`).set({
-                board: JSON.stringify(gameState.board),
-                senteHand: JSON.stringify(gameState.senteHand),
-                goteHand: JSON.stringify(gameState.goteHand),
-                summonPool: JSON.stringify(gameState.summonPool),
-                currentTurn: gameState.currentTurn,
-                hasSummoned: gameState.hasSummoned,
-                gameOver: gameState.gameOver,
-                createdAt: Date.now(),
-                host: userNickname,
-                lastUpdate: Date.now()
-            });
-
-            // 公開ゲームリストに追加
-            database.ref(`publicGames/${gameId}`).set({
-                host: userNickname,
-                createdAt: Date.now()
-            });
-
-            // 接続状態の監視
-            database.ref(`games/${gameId}/players/gote`).on('value', (snapshot) => {
-                opponentConnected = snapshot.exists();
-                updateTurnIndicator();
-
-                // 対戦相手が接続したらチャット機能を有効化
-                if (opponentConnected) {
-                    chatContainer.style.display = 'block';
-
-                    // 公開ゲームリストから削除（満員になったため）
-                    database.ref(`publicGames/${gameId}`).remove();
-                }
-            });
-
-            // 自分の接続状態を記録
-            database.ref(`games/${gameId}/players/sente`).set({
+        // 部屋データの構造を修正
+        const gameData = {
+            createdAt: firebase.database.ServerValue.TIMESTAMP,
+            status: 'waiting',
+            players: {
+            sente: {
+                uid: user.uid,
                 nickname: userNickname,
                 connected: true
+            }
+            },
+            // 初期盤面データも設定
+            board: initialBoardState()
+        };
+
+        // データベースに保存
+        firebase.database().ref(`games/${gameId}`).set(gameData)
+            .then(() => {
+            console.log('部屋を作成しました:', gameId);
+
+            // 部屋への参照を維持する
+            listenForGameChanges(gameId);
+
+            // ローカルストレージに保存して再接続時に復帰できるようにする
+            localStorage.setItem('currentGameId', gameId);
+            localStorage.setItem('playerRole', 'sente');
+            })
+            .catch(error => {
+            console.error('部屋の作成に失敗しました:', error);
+            alert('部屋の作成に失敗しました');
             });
-
-            // 切断時に自分の接続状態を削除
-            database.ref(`games/${gameId}/players/sente`).onDisconnect().remove();
-
-            // 切断時に公開ゲームも削除
-            database.ref(`publicGames/${gameId}`).onDisconnect().remove();
-
-            // ゲーム状態の変更を監視
-            listenForGameChanges();
-
-            // チャットメッセージの監視
-            listenForChatMessages();
-
-            // リマッチ申し込みの監視
-            listenForRematchOffers();
-
-            // UI更新
-            gameCodeElement.textContent = gameId;
-            playerRoleElement.textContent = '先手（黒）';
-            gameInfoElement.style.display = 'block';
-            createGameButton.disabled = true;
-            joinGameButton.disabled = true;
-            turnIndicator.style.display = 'block';
-
-            updateTurnIndicator();
-
-            // タブを切り替え
-            document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
-            document.querySelector('.tab-button[data-tab="create-tab"]').classList.add('active');
-            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-            document.getElementById('create-tab').classList.add('active');
         }
+
+        // 部屋の変更を監視する関数
+        function listenForGameChanges(gameId) {
+        const gameRef = firebase.database().ref(`games/${gameId}`);
+
+        // データ変更をリッスン
+        gameRef.on('value', (snapshot) => {
+            const gameData = snapshot.val();
+            if (!gameData) {
+            console.warn('ゲームデータが見つかりません');
+            return;
+            }
+
+            // ゲームの状態に応じた処理
+            updateGameUI(gameData);
+        }, (error) => {
+            console.error('ゲームデータの取得エラー:', error);
+        });
+        }
+
+        function initialBoardState() {
+        return {
+            // 段（横列）を1〜9、筋（縦列）をa〜iで表現
+            ranks: {
+            1: {
+                e: { type: '王将', owner: 'sente' }
+            },
+            9: {
+                e: { type: '王将', owner: 'gote' }
+            }
+            },
+            // 持ち駒情報
+            captured: {
+            sente: [],
+            gote: []
+            },
+            // 手番（初期値は先手）
+            turn: 'sente'
+        };
+        }
+
+
 
         // ゲームルームに参加（後手として）
         function joinGameRoom(roomId) {
