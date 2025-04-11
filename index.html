@@ -1573,21 +1573,23 @@
 
         // HTMLファイルに追加するJavaScriptコード
         document.addEventListener('DOMContentLoaded', function() {
-        // ログインボタンの処理
-        const loginButton = document.querySelector('button');
+        const loginButton = document.querySelector('#loginButton');
         if (loginButton) {
             loginButton.addEventListener('click', function() {
             const nicknameInput = document.querySelector('input').value;
 
-            if (!nicknameInput || nicknameInput.length < 2) {
+            if (!nicknameInput || nicknameInput.trim().length < 2) {
                 alert('ニックネームは2文字以上入力してください');
                 return;
             }
 
-            // 匿名認証でログイン
+            // 匿名認証を先に実行
             firebase.auth().signInAnonymously()
                 .then((userCredential) => {
                 const user = userCredential.user;
+                localStorage.setItem('userId', user.uid);
+                localStorage.setItem('userNickname', nicknameInput);
+
                 // ユーザー情報を保存
                 return firebase.database().ref('users/' + user.uid).set({
                     nickname: nicknameInput,
@@ -1596,12 +1598,12 @@
                 })
                 .then(() => {
                 console.log('ログイン成功');
-                // ログイン後の処理（モーダルを閉じるなど）
+                // モーダルを閉じる処理
                 document.querySelector('.modal').style.display = 'none';
                 })
                 .catch((error) => {
                 console.error('ログインエラー:', error);
-                alert('ログインに失敗しました: ' + error.message);
+                alert('ログインに失敗しました');
                 });
             });
         }
