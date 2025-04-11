@@ -2345,6 +2345,7 @@
 
                         // ゲーム状態を反映
                         function safeParse(obj) {
+                            if (!obj) return null;
                             if (typeof obj === 'string') {
                                 try {
                                     return JSON.parse(obj);
@@ -2353,10 +2354,15 @@
                                     return null;
                                 }
                             }
-                            return obj;
+                            if (typeof obj === 'object') {
+                                return obj;
+                            }
+                            return null;
                         }
 
-                        gameState.board = safeParse(data.board) || Array.from({ length: 9 }, () => Array(9).fill(null));
+                        const parsedBoard = safeParse(data.board);
+                        console.log('parsedBoard:', parsedBoard);
+                        gameState.board = parsedBoard || Array.from({ length: 9 }, () => Array(9).fill(null));
                         gameState.senteHand = safeParse(data.senteHand) || [];
                         gameState.goteHand = safeParse(data.goteHand) || [];
                         gameState.summonPool = safeParse(data.summonPool) || [];
