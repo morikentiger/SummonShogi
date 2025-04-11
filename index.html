@@ -2224,10 +2224,12 @@
         const userNickname = localStorage.getItem('userNickname') || '匿名プレイヤー';
 
         // 部屋データの構造を修正
+        const boardState = initialBoardState();
+
         const gameData = {
             createdAt: firebase.database.ServerValue.TIMESTAMP,
             status: "waiting",
-            turn: "sente",
+            turn: boardState.turn,
             players: {
                 sente: {
                     uid: user.uid,
@@ -2235,7 +2237,8 @@
                     connected: true
                 }
             },
-            board: initialBoardState()
+            board: boardState.ranks,
+            captured: boardState.captured
         };
 
         // データベースに保存
@@ -2304,21 +2307,21 @@
         }
 
         function initialBoardState() {
-        return {
-            ranks: {
-                1: {
-                    e: { type: '王将', owner: 'sente' }
+            return {
+                ranks: {
+                    1: {
+                        e: { type: '王将', owner: 'sente' }
+                    },
+                    9: {
+                        e: { type: '王将', owner: 'gote' }
+                    }
                 },
-                9: {
-                    e: { type: '王将', owner: 'gote' }
-                }
-            },
-            captured: {
-                sente: [],
-                gote: []
-            },
-            turn: 'sente'
-        };
+                captured: {
+                    sente: [],
+                    gote: []
+                },
+                turn: 'sente'
+            };
         }
 
 
