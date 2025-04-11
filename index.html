@@ -2341,8 +2341,8 @@
                         const data = snapshot.val();
 
                         gameState.board = data.board || Array.from({ length: 9 }, () => Array(9).fill(null));
-                        gameState.senteHand = data.senteHand || [];
-                        gameState.goteHand = data.goteHand || [];
+                        gameState.senteHand = data.captured?.sente || [];
+                        gameState.goteHand = data.captured?.gote || [];
                         gameState.summonPool = data.summonPool || [];
                         gameState.currentTurn = data.currentTurn || 'sente';
                         gameState.hasSummoned = data.hasSummoned || false;
