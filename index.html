@@ -2359,8 +2359,12 @@
               firebase.database().ref(`publicGames/${gameId}`).remove();
               // 先手が初期state投入（1回だけ）
               if (playerRole === 'sente') {
-                const started = (await gameRef.child('meta/startedAt').once('value')).val();
-                if (!started) await pushInitialStateOnce(gameRef);
+                try {
+                  const started = (await gameRef.child('meta/startedAt').once('value')).val();
+                  if (!started) await pushInitialStateOnce(gameRef);
+                } catch (e) {
+                  console.error('初期状態の書き込みに失敗しました。ルールで games/<id>/state と meta の書き込みを許可してください。', e);
+                }
               }
               if (gameInfoElement) gameInfoElement.style.display = 'block';
               if (turnIndicator) turnIndicator.style.display = 'block';
