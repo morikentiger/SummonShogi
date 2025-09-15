@@ -1392,6 +1392,18 @@
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
 
+        // 匿名認証を必ず待つユーティリティ
+        async function ensureAnonAuth() {
+            const auth = firebase.auth();
+            if (!auth.currentUser) {
+                await auth.signInAnonymously();
+                await new Promise((resolve, reject) => {
+                    const off = auth.onAuthStateChanged(u => { if (u) { off(); resolve(); } }, reject);
+                });
+            }
+            return auth.currentUser;
+        }
+
         // Firebaseの初期化コード内または直後に追加
         firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL)
         .then(() => {
@@ -1406,7 +1418,8 @@
             console.log("認証状態:", user ? "認証済み" : "未認証");
         });
 
-        function listenForGameChanges(gameId) {
+        async function listenForGameChanges(gameId) {
+        await ensureAnonAuth();
         const gameRef = firebase.database().ref(`games/${gameId}`);
 
         gameRef.on('value', (snapshot) => {
@@ -1810,12 +1823,7 @@
 
         // ニックネームの重複をチェック（認証完了を待機）
         async function checkNicknameAvailability(nickname) {
-            if (!firebase.auth().currentUser) {
-                await firebase.auth().signInAnonymously();
-                await new Promise(resolve => {
-                    const off = firebase.auth().onAuthStateChanged(u => { if (u) { off(); resolve(); }});
-                });
-            }
+            await ensureAnonAuth();
             const snap = await database.ref('users')
                 .orderByChild('nickname')
                 .equalTo(nickname)
@@ -1825,13 +1833,8 @@
 
         // ユーザー登録（uidに統一）
         async function registerUser(nickname) {
-            if (!firebase.auth().currentUser) {
-                await firebase.auth().signInAnonymously();
-                await new Promise(resolve => {
-                    const off = firebase.auth().onAuthStateChanged(u => { if (u) { off(); resolve(); }});
-                });
-            }
-            const uid = firebase.auth().currentUser.uid;
+            const user = await ensureAnonAuth();
+            const uid = user.uid;
 
             userNickname = nickname;
             isLoggedIn = true;
@@ -1873,7 +1876,8 @@
         }
 
         // 公開ゲームリストの更新を開始
-        function startPublicGamesRefresh() {
+        async function startPublicGamesRefresh() {
+            await ensureAnonAuth();
             // 既存のタイマーがあればクリア
             if (publicGamesRefresh) {
                 clearInterval(publicGamesRefresh);
@@ -1963,8 +1967,9 @@
         }
 
         // 古い公開ゲームをクリーンアップ
-        function cleanupOldPublicGames() {
+        async function cleanupOldPublicGames() {
             const now = Date.now();
+            await ensureAnonAuth();
             database.ref('publicGames').once('value', (snapshot) => {
                 if (!snapshot.exists()) return;
 
@@ -2187,14 +2192,9 @@
         }
 
         // 部屋作成関数
-        function createGameRoom() {
+        async function createGameRoom() {
         // 認証状態の確認
-        const user = firebase.auth().currentUser;
-        if (!user) {
-            console.error('ユーザーがログインしていません');
-            alert('ログインが必要です');
-            return;
-        }
+        const user = await ensureAnonAuth();
 
         gameId = generateRandomId(); // または既存のコード方式
         const userNickname = localStorage.getItem('userNickname') || '匿名プレイヤー';
@@ -2264,7 +2264,8 @@
         }
 
         // 部屋の変更を監視する関数
-        function listenForGameChanges(gameId) {
+        async function listenForGameChanges(gameId) {
+        await ensureAnonAuth();
         const gameRef = firebase.database().ref(`games/${gameId}`);
 
         // データ変更をリッスン
@@ -2303,7 +2304,7 @@
 
 
         // ゲームルームに参加（後手として）
-        function joinGameRoom(roomId) {
+        async function joinGameRoom(roomId) {
             if (!isLoggedIn) {
                 showLoginModal();
                 return;
@@ -2313,6 +2314,7 @@
             playerRole = 'gote';
             isOnlineGame = true;
 
+            await ensureAnonAuth();
             // ゲーム状態を読み込み
             database.ref(`games/${gameId}`).once('value')
                 .then((snapshot) => {
