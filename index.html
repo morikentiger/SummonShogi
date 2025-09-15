@@ -2250,7 +2250,7 @@
           turnIndicator.style.display = 'block';
           turnIndicator.textContent = '対戦相手の接続を待っています…';
 
-          watchGameStart(id);
+          await attachGameListeners(id);
         }
 
         // 部屋の変更を監視する関数
@@ -2322,7 +2322,77 @@
           playerRoleElement.textContent = role === 'sente' ? '先手（あなた）' : '後手（あなた）';
           turnIndicator.style.display = 'block';
 
-          watchGameStart(id);
+          await attachGameListeners(id);
+        }
+
+        // 入力制御・初期state一括書き込みユーティリティ
+        function setInputEnabled(enabled){
+          if (typeof summonButton !== 'undefined' && summonButton) summonButton.disabled = !enabled;
+          if (typeof passButton !== 'undefined' && passButton) passButton.disabled = !enabled;
+        }
+
+        async function pushInitialStateOnce(gameRef){
+          await gameRef.child('meta/startedAt').transaction(v => v || Date.now());
+          const init = {
+            currentTurn: 'sente',
+            board: gameState.board,
+            senteHand: [], goteHand: [],
+            summonPool: [], hasSummoned:false,
+            mustPlaceLastSummoned:false, lastSummonedPiece:null,
+            gameOver:false, winner:null, inCheck:{sente:false,gote:false}, lastMove:null
+          };
+          await gameRef.child('state').set(init);
+        }
+
+        // 2人になったら開始、state購読でUI同期
+        async function attachGameListeners(gameId){
+          await ensureAnonAuth();
+          const gameRef = firebase.database().ref(`games/${gameId}`);
+
+          // players 監視: 2人揃ったら開始処理
+          gameRef.child('players').on('value', async snap => {
+            const players = snap.val() || {};
+            const count = Object.keys(players).length;
+            if (count === 2) {
+              // 公開から消す
+              firebase.database().ref(`publicGames/${gameId}`).remove();
+              // 先手が初期state投入（1回だけ）
+              if (playerRole === 'sente') {
+                const started = (await gameRef.child('meta/startedAt').once('value')).val();
+                if (!started) await pushInitialStateOnce(gameRef);
+              }
+              if (gameInfoElement) gameInfoElement.style.display = 'block';
+              if (turnIndicator) turnIndicator.style.display = 'block';
+              if (typeof chatContainer !== 'undefined' && chatContainer) chatContainer.style.display = 'block';
+            }
+          });
+
+          // state 監視: UI反映・入力制御
+          gameRef.child('state').on('value', snap => {
+            const st = snap.val();
+            if (!st) return;
+            gameState.currentTurn = st.currentTurn;
+            gameState.board       = st.board || gameState.board;
+            gameState.senteHand   = st.senteHand || [];
+            gameState.goteHand    = st.goteHand || [];
+            gameState.summonPool  = st.summonPool || [];
+            gameState.gameOver    = !!st.gameOver;
+            gameState.winner      = st.winner || null;
+
+            // 既存の描画系を呼ぶ（関数が存在する前提）
+            if (typeof renderBoard === 'function') renderBoard();
+            if (typeof renderHands === 'function') renderHands();
+            if (typeof renderSummonPool === 'function') renderSummonPool();
+            if (typeof updateStatus === 'function') updateStatus();
+            if (typeof updateCounters === 'function') updateCounters();
+
+            setInputEnabled(isMyTurn());
+            if (turnIndicator) {
+              turnIndicator.textContent = isMyTurn() ? 'あなたの手番です' : '相手の手番です';
+            }
+          });
+
+          isOnlineGame = true;
         }
 
         // 2人オンラインなら phase を playing に
@@ -2475,34 +2545,30 @@
             });
         }
 
-        // ゲーム状態をFirebaseに同期
+        // ゲーム状態をFirebaseに同期（state 下へフラット保存）
         async function syncGameState() {
-            if (isOnlineGame && gameId) {
-                gameState.lastUpdate = Date.now();
-                await ensureAnonAuth();
-                database.ref(`games/${gameId}`).update({
-                    board: JSON.stringify(gameState.board),
-                    senteHand: JSON.stringify(gameState.senteHand),
-                    goteHand: JSON.stringify(gameState.goteHand),
-                    summonPool: JSON.stringify(gameState.summonPool),
-                    currentTurn: gameState.currentTurn,
-                    hasSummoned: gameState.hasSummoned,
-                    mustPlaceLastSummoned: gameState.mustPlaceLastSummoned,
-                    gameOver: gameState.gameOver,
-                    winner: gameState.winner,
-                    lastUpdate: gameState.lastUpdate,
-                    captured: JSON.stringify({ sente: gameState.senteHand, gote: gameState.goteHand })
-                });
-
-                updateTurnIndicator();
-            }
+            if (!isOnlineGame || !gameId) return;
+            await ensureAnonAuth();
+            const st = {
+              currentTurn: gameState.currentTurn,
+              board: gameState.board,
+              senteHand: gameState.senteHand,
+              goteHand: gameState.goteHand,
+              summonPool: gameState.summonPool,
+              hasSummoned: gameState.hasSummoned,
+              mustPlaceLastSummoned: gameState.mustPlaceLastSummoned,
+              lastSummonedPiece: gameState.lastSummonedPiece,
+              gameOver: gameState.gameOver,
+              winner: gameState.winner,
+              inCheck: gameState.inCheck,
+              lastMove: gameState.lastMove
+            };
+            await database.ref(`games/${gameId}/state`).set(st);
         }
 
         // 自分のターンかどうかを確認
-        function isMyTurn() {
-            return !isOnlineGame ||
-                   (playerRole === 'sente' && gameState.currentTurn === 'sente') ||
-                   (playerRole === 'gote' && gameState.currentTurn === 'gote');
+        function isMyTurn(){
+          return isOnlineGame && playerRole === gameState.currentTurn && !gameState.gameOver;
         }
 
         // ターン表示を更新
