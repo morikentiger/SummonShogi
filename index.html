@@ -1120,7 +1120,7 @@
 </head>
 <body>
     <div id="version-banner" style="width:100%;background:#fffbcc;color:#8B4513;padding:6px 10px;text-align:center;font-weight:bold;border:1px solid #e6d87a;border-radius:6px;margin-bottom:8px;">
-        ver2.2.2 通信許可と先手後手確定を改善
+        ver2.2.4 先手/後手確定＆操作不能修正中
     </div>
     <div class="header">
         <h1>オンライン対戦対応 召喚将棋</h1>
@@ -1432,20 +1432,7 @@
             console.log("認証状態:", user ? "認証済み" : "未認証");
         });
 
-        async function listenForGameChanges(gameId) {
-        await ensureAnonAuth();
-        const gameRef = firebase.database().ref(`games/${gameId}`);
-
-        gameRef.on('value', (snapshot) => {
-            // ゲームデータの処理
-        }, (error) => {
-            console.error('ゲームデータの取得エラー:', error);
-            if (error.code === 'PERMISSION_DENIED') {
-            alert('ゲームデータへのアクセス権限がありません');
-            // エラーリカバリー処理
-            }
-        });
-        }
+        // 旧ロジックの listenForGameChanges は非推奨（attachGameListeners を使用）
 
         // ページ読み込み時に実行
         document.addEventListener('DOMContentLoaded', function() {
@@ -1465,7 +1452,7 @@
                         .then(snapshot => {
                             if (snapshot.exists()) {
                                 console.log('前回の対局に復帰します:', savedGameId);
-                                listenForGameChanges(savedGameId);
+                                attachGameListeners(savedGameId);
                             } else {
                                 // 対局が見つからない場合はローカルストレージをクリア
                                 localStorage.removeItem('currentGameId');
@@ -2277,24 +2264,7 @@
         }
 
         // 部屋の変更を監視する関数
-        async function listenForGameChanges(gameId) {
-        await ensureAnonAuth();
-        const gameRef = firebase.database().ref(`games/${gameId}`);
-
-        // データ変更をリッスン
-        gameRef.on('value', (snapshot) => {
-            const gameData = snapshot.val();
-            if (!gameData) {
-            console.warn('ゲームデータが見つかりません');
-            return;
-            }
-
-            // ゲームの状態に応じた処理
-            updateGameUI(gameData);
-        }, (error) => {
-            console.error('ゲームデータの取得エラー:', error);
-        });
-        }
+        // 旧ロジックの listenForGameChanges は非推奨（attachGameListeners を使用）
 
         function initialBoardState() {
             return {
@@ -2373,6 +2343,20 @@
         function setInputEnabled(enabled){
           if (typeof summonButton !== 'undefined' && summonButton) summonButton.disabled = !enabled;
           if (typeof passButton !== 'undefined' && passButton) passButton.disabled = !enabled;
+        }
+
+        // 盤面配列を常に 9x9 の二次元配列へ正規化
+        function normalizeBoard(raw){
+          if (Array.isArray(raw) && raw.length === 9 && Array.isArray(raw[0])) return raw;
+          const out = Array.from({length:9}, () => Array(9).fill(null));
+          if (!raw) return out;
+          for (let y = 0; y < 9; y++) {
+            const row = raw[y] || raw[String(y)] || [];
+            for (let x = 0; x < 9; x++) {
+              out[y][x] = row[x] || row[String(x)] || null;
+            }
+          }
+          return out;
         }
 
         async function pushInitialStateOnce(gameRef){
@@ -2491,8 +2475,8 @@
           gameRef.child('state').on('value', snap => {
             const st = snap.val();
             if (!st) return;
-            gameState.currentTurn = st.currentTurn;
-            gameState.board       = st.board || gameState.board;
+            gameState.currentTurn = st.currentTurn || gameState.currentTurn || 'sente';
+            gameState.board       = normalizeBoard(st.board);
             gameState.senteHand   = st.senteHand || [];
             gameState.goteHand    = st.goteHand || [];
             gameState.summonPool  = st.summonPool || [];
@@ -2506,9 +2490,10 @@
             if (typeof updateStatus === 'function') updateStatus();
             if (typeof updateCounters === 'function') updateCounters();
 
-            setInputEnabled(isMyTurn());
+            const enable = isMyTurn();
+            setInputEnabled(enable);
             if (turnIndicator) {
-              turnIndicator.textContent = isMyTurn() ? 'あなたの手番です' : '相手の手番です';
+              turnIndicator.textContent = enable ? 'あなたの手番です' : '相手の手番です';
             }
           });
 
@@ -2519,8 +2504,8 @@
             const data = snap.val();
             if (!data) return;
             try {
-              gameState.currentTurn = data.currentTurn || gameState.currentTurn;
-              gameState.board       = JSON.parse(data.board || 'null') || gameState.board;
+              gameState.currentTurn = data.currentTurn || gameState.currentTurn || 'sente';
+              gameState.board       = normalizeBoard(JSON.parse(data.board || 'null'));
               gameState.senteHand   = JSON.parse(data.senteHand || '[]');
               gameState.goteHand    = JSON.parse(data.goteHand || '[]');
               gameState.summonPool  = JSON.parse(data.summonPool || '[]');
@@ -2637,52 +2622,7 @@
         }
 
         // ゲーム状態の変更を監視
-        async function listenForGameChanges() {
-            await ensureAnonAuth();
-            database.ref(`games/${gameId}`).on('value', (snapshot) => {
-                if (!snapshot.exists()) {
-                    alert('ゲームルームが削除されました');
-                    leaveGameRoom();
-                    initGame();
-                    return;
-                }
-
-                const data = snapshot.val();
-
-                // 自分のターンでない場合のみ状態を更新
-                if (!isMyTurn() || data.lastUpdate > (gameState.lastUpdate || 0)) {
-                    gameState.board = JSON.parse(data.board ?? 'null') || Array.from({ length: 9 }, () => Array(9).fill(null));
-                    gameState.senteHand = JSON.parse(data.senteHand);
-                    gameState.goteHand = JSON.parse(data.goteHand);
-                    gameState.summonPool = JSON.parse(data.summonPool);
-                    gameState.currentTurn = data.currentTurn;
-                    gameState.hasSummoned = data.hasSummoned;
-                    gameState.mustPlaceLastSummoned = data.mustPlaceLastSummoned || false;
-                    gameState.gameOver = data.gameOver || false;
-                    gameState.winner = data.winner || null;
-                    gameState.lastUpdate = data.lastUpdate;
-
-                    // 自分のターンになった場合は通知
-                    if (isMyTurn() && gameState.currentTurn !== gameState.previousTurn) {
-                        updateTurnIndicator();
-                    }
-
-                    gameState.previousTurn = gameState.currentTurn;
-
-                    // UI更新
-                    renderBoard();
-                    renderHands();
-                    renderSummonPool();
-                    updateStatus();
-                    updateCounters();
-
-                    // ゲーム終了時はリマッチコントロールを表示
-                    if (gameState.gameOver) {
-                        rematchControls.style.display = 'block';
-                    }
-                }
-            });
-        }
+        // 旧ロジックの listenForGameChanges は非推奨（attachGameListeners を使用）
 
         // チャットメッセージを監視
         async function listenForChatMessages() {
@@ -2761,7 +2701,10 @@
 
         // 自分のターンかどうかを確認
         function isMyTurn(){
-          return isOnlineGame && playerRole === gameState.currentTurn && !gameState.gameOver;
+          // currentTurn が未設定/壊れているケースを防御
+          if (!isOnlineGame || gameState.gameOver) return false;
+          const turn = gameState.currentTurn || 'sente';
+          return playerRole === turn;
         }
 
         // ターン表示を更新
@@ -2888,7 +2831,8 @@
                     cell.dataset.y = y;
 
                     // 駒があれば表示
-                    const piece = gameState.board[y][x];
+                    const row = gameState.board[y] || [];
+                    const piece = row[x] || null;
                     if (piece && piece.type) {
                         const pieceElement = document.createElement('div');
                         pieceElement.className = `piece ${piece.owner}`;
