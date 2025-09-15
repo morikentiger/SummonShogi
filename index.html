@@ -1199,33 +1199,33 @@
     </div>
 
     <div class="game-container game-layout">
-        <div class="board-area">
-            <div class="coordinates">
-                <div>9</div><div>8</div><div>7</div><div>6</div><div>5</div><div>4</div><div>3</div><div>2</div><div>1</div>
-            </div>
-            <div class="board-with-coords">
-                <div class="row-coordinates">
-                    <div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div><div>七</div><div>八</div><div>九</div>
-                </div>
-                <div class="board" id="board"></div>
-            </div>
-        </div>
-
         <div class="controls">
-            <div class="hand-container">
+            <!-- 後手の持ち駒 -->
+            <div class="hand-container" id="gote-hand-container">
                 <div class="hand-title">後手の持ち駒 <span id="gote-count">0枚</span></div>
                 <div class="hand" id="gote-hand"></div>
             </div>
 
-            <div class="status-panel">
-                <div class="status" id="status">ゲームを開始します</div>
-                <div class="action-buttons">
-                    <button id="summon-button" disabled>召喚する</button>
-                    <button id="pass-button" disabled>パス</button>
-                    <button id="reset-button">リセット</button>
+            <!-- 盤面 -->
+            <div class="board-area" id="board-area">
+                <div class="coordinates">
+                    <div>9</div><div>8</div><div>7</div><div>6</div><div>5</div><div>4</div><div>3</div><div>2</div><div>1</div>
+                </div>
+                <div class="board-with-coords">
+                    <div class="row-coordinates">
+                        <div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div><div>七</div><div>八</div><div>九</div>
+                    </div>
+                    <div class="board" id="board"></div>
                 </div>
             </div>
 
+            <!-- 先手の持ち駒 -->
+            <div class="hand-container" id="sente-hand-container">
+                <div class="hand-title">先手の持ち駒 <span id="sente-count">0枚</span></div>
+                <div class="hand" id="sente-hand"></div>
+            </div>
+
+            <!-- 召喚プール（任意の位置、ここではボタンの直前） -->
             <div class="summon-container">
                 <div class="summon-title">召喚プール <span id="summon-count">38枚</span></div>
                 <div class="summon-pool" id="summon-pool"></div>
@@ -1237,9 +1237,14 @@
                 </div>
             </div>
 
-            <div class="hand-container">
-                <div class="hand-title">先手の持ち駒 <span id="sente-count">0枚</span></div>
-                <div class="hand" id="sente-hand"></div>
+            <!-- ボタン類（最下部） -->
+            <div class="status-panel">
+                <div class="status" id="status">ゲームを開始します</div>
+                <div class="action-buttons">
+                    <button id="summon-button" disabled>召喚する</button>
+                    <button id="pass-button" disabled>パス</button>
+                    <button id="reset-button">リセット</button>
+                </div>
             </div>
         </div>
     </div>
