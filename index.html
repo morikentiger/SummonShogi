@@ -1591,6 +1591,11 @@
         };
 
         function showNicknameModal() {
+            // 統一: ログインモーダル表示は showLoginModal に集約
+            if (typeof showLoginModal === 'function') {
+                showLoginModal();
+                return;
+            }
             loginModal.style.display = 'flex';
             nicknameInput.focus();
         }
@@ -1671,49 +1676,7 @@
         const userAvatar = document.getElementById('user-avatar');
         const userNicknameElement = document.getElementById('user-nickname');
 
-        // HTML内のscriptタグに追加
-        document.addEventListener('DOMContentLoaded', function() {
-            const loginButton = document.querySelector('#loginButton') || document.querySelector('button');
-
-            if (loginButton) {
-                loginButton.addEventListener('click', function() {
-                const nicknameInput = document.querySelector('input').value;
-
-                if (!nicknameInput || nicknameInput.trim().length < 2) {
-                    alert('ニックネームは2文字以上入力してください');
-                    return;
-                }
-
-                // 匿名認証でログイン（既にログイン済みでも再実行して確実にする）
-                firebase.auth().signInAnonymously()
-                    .then((userCredential) => {
-                    const user = userCredential.user;
-                    localStorage.setItem('userNickname', nicknameInput);
-
-                    // ユーザー情報をデータベースに保存
-                    return firebase.database().ref('users/' + user.uid).set({
-                        nickname: nicknameInput,
-                        lastLoginAt: firebase.database.ServerValue.TIMESTAMP
-                    });
-                    })
-                    .then(() => {
-                    console.log('ログイン成功！');
-                    // モーダルを閉じる処理
-                    const modal = document.querySelector('.modal');
-                    if (modal) modal.style.display = 'none';
-                    })
-                    .catch((error) => {
-                    console.error('ログインエラー:', error);
-                    alert('ログインに失敗しました: ' + error.message);
-                    });
-                });
-            }
-            // 部屋作成ボタンのイベントリスナー追加
-            const createButton = document.querySelector('.部屋を作成する, #createRoomButton');
-            if (createButton) {
-                createButton.addEventListener('click', handleRoomCreation);
-            }
-        });
+        // 競合する重複初期化を除去（正規のリスナーは下部で設定）
 
         // イベントハンドラを関数として定義
         function handleRoomCreation() {
@@ -1845,29 +1808,42 @@
             }
         });
 
-        // ニックネームの重複をチェック
-        function checkNicknameAvailability(nickname) {
-            return database.ref('users').orderByChild('nickname').equalTo(nickname).once('value')
-                .then(snapshot => {
-                    return !snapshot.exists();
+        // ニックネームの重複をチェック（認証完了を待機）
+        async function checkNicknameAvailability(nickname) {
+            if (!firebase.auth().currentUser) {
+                await firebase.auth().signInAnonymously();
+                await new Promise(resolve => {
+                    const off = firebase.auth().onAuthStateChanged(u => { if (u) { off(); resolve(); }});
                 });
+            }
+            const snap = await database.ref('users')
+                .orderByChild('nickname')
+                .equalTo(nickname)
+                .once('value');
+            return !snap.exists();
         }
 
-        // ユーザー登録
-        function registerUser(nickname) {
+        // ユーザー登録（uidに統一）
+        async function registerUser(nickname) {
+            if (!firebase.auth().currentUser) {
+                await firebase.auth().signInAnonymously();
+                await new Promise(resolve => {
+                    const off = firebase.auth().onAuthStateChanged(u => { if (u) { off(); resolve(); }});
+                });
+            }
+            const uid = firebase.auth().currentUser.uid;
+
             userNickname = nickname;
             isLoggedIn = true;
 
-            // Firebaseにユーザー情報を保存
-            const userId = generateUserId();
-            database.ref(`users/${userId}`).set({
-                nickname: nickname,
-                lastLogin: Date.now()
+            await database.ref(`users/${uid}`).set({
+                nickname,
+                lastLoginAt: firebase.database.ServerValue.TIMESTAMP
             });
 
             // localStorageに保存
             localStorage.setItem('userNickname', nickname);
-            localStorage.setItem('userId', userId);
+            localStorage.setItem('userId', uid);
 
             // UI更新
             userNicknameElement.textContent = nickname;
@@ -1875,7 +1851,7 @@
             userInfo.style.display = 'flex';
 
             // 接続時に消えるよう設定
-            database.ref(`users/${userId}`).onDisconnect().remove();
+            database.ref(`users/${uid}`).onDisconnect().remove();
         }
 
         // ユーザーIDを生成
