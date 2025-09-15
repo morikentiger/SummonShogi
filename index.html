@@ -1103,31 +1103,13 @@
                 align-items: center;
                 width: 100%;
             }
-
-            .board-area {
-                order: 1;
-                margin-bottom: 15px;
-                width: 100%;
-            }
-
-            .controls {
-                order: 2;
-                width: 100%;
-            }
-
-            .hand-container:first-of-type {
-                order: 0;
-                margin-bottom: 10px;
-            }
-
-            .hand-container:last-of-type {
-                order: 3;
-                margin-top: 10px;
-            }
-
-            .summon-container {
-                order: 2;
-            }
+            /* .controls 内の子要素の並びを固定化 */
+            .controls { width: 100%; }
+            #gote-hand-container { order: 0; }
+            #board-area { order: 1; margin-bottom: 15px; width: 100%; }
+            #sente-hand-container { order: 2; margin-top: 10px; }
+            .summon-container { order: 3; }
+            .status-panel { order: 4; }
         }
     </style>
 
@@ -1137,7 +1119,7 @@
 </head>
 <body>
     <div id="version-banner" style="width:100%;background:#fffbcc;color:#8B4513;padding:6px 10px;text-align:center;font-weight:bold;border:1px solid #e6d87a;border-radius:6px;margin-bottom:8px;">
-        ver2.1.1先手バグ解消中
+        ver2.1.2 先手バグ解消中・モバイル並び最適化
     </div>
     <div class="header">
         <h1>オンライン対戦対応 召喚将棋</h1>
