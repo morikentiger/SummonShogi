@@ -1788,6 +1788,18 @@
             await joinGameRoomById(gid);
         });
 
+        // publicGames の code → gameId を解決
+        async function findGameIdByCode(code){
+            await ensureAnonAuth();
+            const snap = await firebase.database()
+                .ref('publicGames')
+                .orderByChild('code')
+                .equalTo(code)
+                .once('value');
+            if (!snap.exists()) return null;
+            return Object.keys(snap.val())[0];
+        }
+
         // ニックネーム予約用ヘルパー（推奨: /nicknames インデックス）
         function toKey(name){ return name.trim().toLowerCase(); }
         async function claimNickname(nickname) {
@@ -1963,12 +1975,9 @@
                 const joinButton = document.createElement('button');
                 joinButton.className = 'join-public-button';
                 joinButton.textContent = '参加する';
-                joinButton.addEventListener('click', () => {
-                    if (!isLoggedIn) {
-                        showLoginModal();
-                        return;
-                    }
-                    joinGameRoomById(game.id);
+                joinButton.addEventListener('click', async () => {
+                    if (!isLoggedIn) { showLoginModal(); return; }
+                    await joinGameRoomById(game.id);
                 });
 
                 gameItem.appendChild(gameInfo);
@@ -2211,87 +2220,41 @@
             updateTurnIndicator();
         }
 
-        // 部屋作成関数
-        async function createGameRoom() {
-        // 認証状態の確認
-        const user = await ensureAnonAuth();
+        // ルーム作成：初回 .write を通すため完成形を一括 update
+        async function createGameRoom(){
+            const user = await ensureAnonAuth();
+            const uid = user.uid;
+            const nickname = localStorage.getItem('userNickname') || '匿名';
+            const newGameId = generateRandomId();
+            const code = newGameId; // 6文字コードとして使用
 
-        gameId = generateRandomId(); // または既存のコード方式
-        const userNickname = localStorage.getItem('userNickname') || '匿名プレイヤー';
+            const updates = {};
+            updates[`games/${newGameId}`] = {
+                createdAt: firebase.database.ServerValue.TIMESTAMP,
+                status: 'waiting',
+                turn: 'sente',
+                players: { [uid]: { uid, nickname, role: 'sente', connected: true } }
+            };
+            updates[`publicGames/${newGameId}`] = {
+                host: nickname,
+                code,
+                createdAt: firebase.database.ServerValue.TIMESTAMP
+            };
 
-        // 部屋データの構造を修正
-        const boardState = initialBoardState();
+            await firebase.database().ref().update(updates);
 
-        const gameData = {
-            createdAt: firebase.database.ServerValue.TIMESTAMP,
-            status: "waiting",
-            turn: boardState.turn,
-            players: {
-                sente: {
-                    uid: user.uid,
-                    nickname: userNickname,
-                    connected: true
-                }
-            },
-            board: boardState.ranks,
-            captured: boardState.captured
-        };
+            // UI/状態
+            isOnlineGame = true;
+            gameId = newGameId;
+            playerRole = 'sente';
+            localStorage.setItem('currentGameId', gameId);
+            localStorage.setItem('playerRole', playerRole);
+            gameInfoElement.style.display = 'block';
+            gameCodeElement.textContent = code;
+            playerRoleElement.textContent = '先手';
+            turnIndicator.style.display = 'block';
 
-        // データベースに保存
-        firebase.database().ref(`games/${gameId}`).set(gameData)
-            .then(() => {
-                console.log('部屋を作成しました:', gameId);
-
-                // グローバル変数に代入しておく（あとで参照するため）
-                isOnlineGame = true;
-                playerRole = 'sente';
-                gameId = gameId; // すでに定義済みでも明示的に再代入しておく
-
-                // プレイヤー情報の保存（従来のroleキー）
-                database.ref(`games/${gameId}/players/sente`).set({
-                    uid: user.uid,
-                    nickname: userNickname,
-                    connected: true
-                });
-
-                // ルール用のUIDキーも登録（.read: players hasChild(auth.uid) を満たす）
-                database.ref(`games/${gameId}/players/${user.uid}`).set({
-                    uid: user.uid,
-                    nickname: userNickname,
-                    role: 'sente',
-                    connected: true,
-                    joinedAt: firebase.database.ServerValue.TIMESTAMP
-                });
-
-                // 接続解除時に削除
-                database.ref(`games/${gameId}/players/sente`).onDisconnect().remove();
-                database.ref(`games/${gameId}/players/${user.uid}`).onDisconnect().remove();
-
-                // 公開ゲームとしてリストに追加
-                database.ref(`publicGames/${gameId}`).set({
-                    host: userNickname,
-                    code: gameId, // 検索用コード
-                    createdAt: firebase.database.ServerValue.TIMESTAMP
-                });
-
-                // UIを更新
-                gameCodeElement.textContent = gameId;
-                playerRoleElement.textContent = '先手（黒）';
-                gameInfoElement.style.display = 'block';
-                turnIndicator.style.display = 'block';
-                updateTurnIndicator();
-
-                // ローカルストレージに保存して復帰できるように
-                localStorage.setItem('currentGameId', gameId);
-                localStorage.setItem('playerRole', 'sente');
-
-                // リスナーを設定
-                listenForGameChanges(gameId);
-            })
-            .catch(error => {
-                console.error('部屋の作成に失敗しました:', error);
-                alert('部屋の作成に失敗しました');
-            });
+            listenForGameChanges(gameId);
         }
 
         // 部屋の変更を監視する関数
@@ -2334,111 +2297,40 @@
 
 
 
-        // ゲームルームに参加（gameIdで参加）
-        async function joinGameRoomById(targetGameId) {
-            if (!isLoggedIn) {
-                showLoginModal();
-                return;
-            }
-
+        // 参加：まず players/<uid> に自分を書いてから購読開始
+        async function joinGameRoomById(targetGameId){
             const user = await ensureAnonAuth();
             const uid = user.uid;
-            const nickname = localStorage.getItem('userNickname') || '匿名プレイヤー';
+            const nickname = localStorage.getItem('userNickname') || '匿名';
 
-            // 1) 先に自分を players/<uid> に登録
-            await database.ref(`games/${targetGameId}/players/${uid}`).set({
-                uid,
-                nickname,
-                role: 'gote',
-                connected: true,
-                joinedAt: firebase.database.ServerValue.TIMESTAMP
+            // 1) 参加者として UID キーに登録（await で確定させる）
+            await firebase.database()
+                .ref(`games/${targetGameId}/players/${uid}`)
+                .set({
+                    uid,
+                    nickname,
+                    role: 'gote',
+                    connected: true,
+                    joinedAt: firebase.database.ServerValue.TIMESTAMP
+                });
+
+            // 互換：役割キーも必要なら維持
+            await firebase.database().ref(`games/${targetGameId}/players/gote`).set({
+                uid, nickname, connected: true
             });
-            database.ref(`games/${targetGameId}/players/${uid}`).onDisconnect().remove();
+            firebase.database().ref(`games/${targetGameId}/players/gote`).onDisconnect().remove();
 
-            // 2) ここからゲーム本体を読み込み
+            // 2) ここから購読（.read 条件を満たした後なので許可される）
+            isOnlineGame = true;
             gameId = targetGameId;
             playerRole = 'gote';
-            isOnlineGame = true;
             localStorage.setItem('currentGameId', gameId);
             localStorage.setItem('playerRole', playerRole);
+            gameInfoElement.style.display = 'block';
+            playerRoleElement.textContent = '後手';
+            turnIndicator.style.display = 'block';
 
-            database.ref(`games/${gameId}`).once('value')
-                .then((snapshot) => {
-                    if (snapshot.exists()) {
-                        const data = snapshot.val();
-
-                        gameState.board = data.board || Array.from({ length: 9 }, () => Array(9).fill(null));
-                        gameState.senteHand = data.captured?.sente || [];
-                        gameState.goteHand = data.captured?.gote || [];
-                        gameState.summonPool = data.summonPool || [];
-                        gameState.currentTurn = data.currentTurn || 'sente';
-                        gameState.hasSummoned = data.hasSummoned || false;
-                        gameState.mustPlaceLastSummoned = data.mustPlaceLastSummoned || false;
-                        gameState.gameOver = data.gameOver || false;
-                        gameState.winner = data.winner || null;
-
-                        // UI更新
-                        renderBoard();
-                        renderHands();
-                        renderSummonPool();
-                        updateStatus();
-                        updateCounters();
-
-                        // 従来のroleキーも書いて互換維持
-                        database.ref(`games/${gameId}/players/gote`).set({
-                            uid,
-                            nickname: userNickname,
-                            connected: true
-                        });
-
-                        // 切断時に従来キーも削除
-                        database.ref(`games/${gameId}/players/gote`).onDisconnect().remove();
-
-                        // 相手の接続状態を監視
-                        database.ref(`games/${gameId}/players/sente`).on('value', (snapshot) => {
-                            opponentConnected = snapshot.exists();
-                            updateTurnIndicator();
-
-                            // 対戦相手が接続したらチャット機能を有効化
-                            if (opponentConnected) {
-                                chatContainer.style.display = 'block';
-
-                                // 公開ゲームリストから削除（満員になったため）
-                                database.ref(`publicGames/${gameId}`).remove();
-                            }
-                        });
-
-                        // ゲーム状態の変更を監視
-                        listenForGameChanges(gameId);
-
-                        // チャットメッセージの監視
-                        listenForChatMessages();
-
-                        // リマッチ申し込みの監視
-                        listenForRematchOffers();
-
-                        // UI更新
-                        gameCodeElement.textContent = gameId;
-                        playerRoleElement.textContent = '後手（白）';
-                        gameInfoElement.style.display = 'block';
-                        joinFormElement.style.display = 'block';
-                        createGameButton.disabled = true;
-                        joinGameButton.disabled = true;
-                        turnIndicator.style.display = 'block';
-
-                        updateTurnIndicator();
-                    } else {
-                        alert('指定されたゲームルームが見つかりません');
-                        joinFormElement.style.display = 'block';
-                        createGameButton.disabled = false;
-                    }
-                })
-                .catch((error) => {
-                    console.error('ゲームルームへの参加エラー:', error);
-                    alert('ゲームルームへの参加中にエラーが発生しました');
-                    joinFormElement.style.display = 'block';
-                    createGameButton.disabled = false;
-                });
+            listenForGameChanges(gameId);
         }
 
         // コードから gameId を検索
