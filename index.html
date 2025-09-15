@@ -1769,18 +1769,23 @@
             createGameRoom();
         });
 
-        if (joinSubmitButton) joinSubmitButton.addEventListener('click', () => {
+        if (joinSubmitButton) joinSubmitButton.addEventListener('click', async () => {
             if (!isLoggedIn) {
                 showLoginModal();
                 return;
             }
 
             const code = gameCodeInput.value.trim().toUpperCase();
-            if (code.length === 6) {
-                joinGameRoom(code);
-            } else {
+            if (code.length !== 6) {
                 alert('有効なゲームコード（6文字）を入力してください');
+                return;
             }
+            const gid = await findGameIdByCode(code);
+            if (!gid) {
+                alert('そのコードの部屋は見つかりません');
+                return;
+            }
+            await joinGameRoomById(gid);
         });
 
         // ニックネーム予約用ヘルパー（推奨: /nicknames インデックス）
@@ -1963,7 +1968,7 @@
                         showLoginModal();
                         return;
                     }
-                    joinGameRoom(game.id);
+                    joinGameRoomById(game.id);
                 });
 
                 gameItem.appendChild(gameInfo);
@@ -2265,6 +2270,7 @@
                 // 公開ゲームとしてリストに追加
                 database.ref(`publicGames/${gameId}`).set({
                     host: userNickname,
+                    code: gameId, // 検索用コード
                     createdAt: firebase.database.ServerValue.TIMESTAMP
                 });
 
@@ -2328,32 +2334,34 @@
 
 
 
-        // ゲームルームに参加（後手として）
-        async function joinGameRoom(roomId) {
+        // ゲームルームに参加（gameIdで参加）
+        async function joinGameRoomById(targetGameId) {
             if (!isLoggedIn) {
                 showLoginModal();
                 return;
             }
 
-            gameId = roomId.toUpperCase();
-            playerRole = 'gote';
-            isOnlineGame = true;
-
             const user = await ensureAnonAuth();
             const uid = user.uid;
             const nickname = localStorage.getItem('userNickname') || '匿名プレイヤー';
 
-            // 先に自分を players/<uid> に登録（awaitで確定）
-            await database.ref(`games/${gameId}/players/${uid}`).set({
+            // 1) 先に自分を players/<uid> に登録
+            await database.ref(`games/${targetGameId}/players/${uid}`).set({
                 uid,
                 nickname,
                 role: 'gote',
                 connected: true,
                 joinedAt: firebase.database.ServerValue.TIMESTAMP
             });
-            database.ref(`games/${gameId}/players/${uid}`).onDisconnect().remove();
+            database.ref(`games/${targetGameId}/players/${uid}`).onDisconnect().remove();
 
-            // ここから games/<id> を読み込み（.read 条件を満たす）
+            // 2) ここからゲーム本体を読み込み
+            gameId = targetGameId;
+            playerRole = 'gote';
+            isOnlineGame = true;
+            localStorage.setItem('currentGameId', gameId);
+            localStorage.setItem('playerRole', playerRole);
+
             database.ref(`games/${gameId}`).once('value')
                 .then((snapshot) => {
                     if (snapshot.exists()) {
@@ -2431,6 +2439,18 @@
                     joinFormElement.style.display = 'block';
                     createGameButton.disabled = false;
                 });
+        }
+
+        // コードから gameId を検索
+        async function findGameIdByCode(code){
+            await ensureAnonAuth();
+            const snap = await firebase.database()
+                .ref('publicGames')
+                .orderByChild('code')
+                .equalTo(code)
+                .once('value');
+            if (!snap.exists()) return null;
+            return Object.keys(snap.val())[0];
         }
 
         // ゲームルームから離脱
