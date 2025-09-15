@@ -2293,34 +2293,49 @@
 
 
 
-        // 参加: players に自分を登録し、2人なら開始。開始を監視
+        // 参加: トランザクションで役割を決定して登録（同時参加でも正しく割当）
         async function joinGameRoomById(id) {
           await ensureAnonAuth();
           const uid = firebase.auth().currentUser.uid;
+          const nickname = localStorage.getItem('userNickname') || '匿名';
           const gameRef = database.ref(`games/${id}`);
-          const snap = await gameRef.once('value');
-          if (!snap.exists()) { alert('部屋が見つかりません'); return; }
-
-          const players = snap.child('players').val() || {};
-          if (Object.keys(players).length >= 2 && !players[uid]) {
-            alert('この部屋は満員です'); return;
-          }
-          const role = players[uid]?.role || (Object.keys(players).length === 1 ? 'gote' : 'sente');
+          const gameSnap = await gameRef.once('value');
+          if (!gameSnap.exists()) { alert('部屋が見つかりません'); return; }
 
           const now = Date.now();
-          await gameRef.child(`players/${uid}`).set({
-            role, nickname: localStorage.getItem('userNickname'), online:true, joinedAt: now
+          let decidedRole = null;
+          const txn = await gameRef.child('players').transaction(current => {
+            const players = current || {};
+            const ids = Object.keys(players);
+
+            // 既に自分がいれば上書き（role維持）
+            if (players[uid]) {
+              decidedRole = players[uid].role || (ids.length === 1 && players[ids[0]].role === 'sente' ? 'gote' : 'sente');
+              players[uid] = { ...players[uid], role: decidedRole, nickname, online: true, joinedAt: players[uid].joinedAt || now };
+              return players;
+            }
+
+            // 定員オーバー
+            if (ids.length >= 2) return; // abort
+
+            // 既存の役割を見て空いている方に入る
+            const roles = ids.map(k => players[k]?.role).filter(Boolean);
+            decidedRole = roles.includes('sente') ? 'gote' : 'sente';
+            players[uid] = { role: decidedRole, nickname, online: true, joinedAt: now };
+            return players;
           });
+
+          if (!txn.committed) { alert('この部屋は満員です'); return; }
+
+          // 接続切れ時のフラグ
           gameRef.child(`players/${uid}/online`).onDisconnect().set(false);
 
-          // 2人そろっていたら開始へ
-          startGameIfReady(id);
-
-          isOnlineGame = true; gameId = id; playerRole = role;
-          gameInfoElement.style.display = 'block';
-          gameCodeElement.textContent = snap.val().code || id;
-          playerRoleElement.textContent = role === 'sente' ? '先手（あなた）' : '後手（あなた）';
-          turnIndicator.style.display = 'block';
+          // ローカル状態/表示
+          isOnlineGame = true; gameId = id; playerRole = decidedRole || txn.snapshot.val()?.[uid]?.role || 'sente';
+          if (gameInfoElement) gameInfoElement.style.display = 'block';
+          if (gameCodeElement) gameCodeElement.textContent = gameSnap.val().code || id;
+          if (playerRoleElement) playerRoleElement.textContent = (playerRole === 'sente') ? '先手（あなた）' : '後手（あなた）';
+          if (turnIndicator) turnIndicator.style.display = 'block';
 
           await attachGameListeners(id);
         }
