@@ -1108,8 +1108,9 @@
             #gote-hand-container { order: 0; }
             #board-area { order: 1; margin-bottom: 15px; width: 100%; }
             #sente-hand-container { order: 2; margin-top: 10px; }
-            .summon-container { order: 3; }
-            .status-panel { order: 4; }
+            /* スマホではボタン等を先に、その後に召喚プール */
+            .status-panel { order: 3; }
+            .summon-container { order: 4; }
         }
     </style>
 
@@ -1119,7 +1120,7 @@
 </head>
 <body>
     <div id="version-banner" style="width:100%;background:#fffbcc;color:#8B4513;padding:6px 10px;text-align:center;font-weight:bold;border:1px solid #e6d87a;border-radius:6px;margin-bottom:8px;">
-        ver2.1.2 先手バグ解消中・モバイル並び最適化
+        ver2.1.3 スマホ並び修正（ボタン→プール）
     </div>
     <div class="header">
         <h1>オンライン対戦対応 召喚将棋</h1>
