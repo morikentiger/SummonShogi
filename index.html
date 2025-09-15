@@ -1120,7 +1120,7 @@
 </head>
 <body>
     <div id="version-banner" style="width:100%;background:#fffbcc;color:#8B4513;padding:6px 10px;text-align:center;font-weight:bold;border:1px solid #e6d87a;border-radius:6px;margin-bottom:8px;">
-        ver2.1.3 スマホ並び修正（ボタン→プール）
+        ver2.2.2 通信許可と先手後手確定を改善
     </div>
     <div class="header">
         <h1>オンライン対戦対応 召喚将棋</h1>
@@ -2308,8 +2308,6 @@
           const uid = firebase.auth().currentUser.uid;
           const nickname = localStorage.getItem('userNickname') || '匿名';
           const gameRef = database.ref(`games/${id}`);
-          const gameSnap = await gameRef.once('value');
-          if (!gameSnap.exists()) { alert('部屋が見つかりません'); return; }
 
           const now = Date.now();
           let decidedRole = null;
@@ -2350,7 +2348,7 @@
           // ローカル状態/表示
           isOnlineGame = true; gameId = id; playerRole = decidedRole;
           if (gameInfoElement) gameInfoElement.style.display = 'block';
-          if (gameCodeElement) gameCodeElement.textContent = gameSnap.val().code || id;
+          if (gameCodeElement) gameCodeElement.textContent = id;
           if (playerRoleElement) playerRoleElement.textContent = (playerRole === 'sente') ? '先手（あなた）' : '後手（あなた）';
           if (turnIndicator) turnIndicator.style.display = 'block';
 
