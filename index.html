@@ -2242,15 +2242,25 @@
                 playerRole = 'sente';
                 gameId = gameId; // すでに定義済みでも明示的に再代入しておく
 
-                // プレイヤー情報の保存
+                // プレイヤー情報の保存（従来のroleキー）
                 database.ref(`games/${gameId}/players/sente`).set({
                     uid: user.uid,
                     nickname: userNickname,
                     connected: true
                 });
 
+                // ルール用のUIDキーも登録（.read: players hasChild(auth.uid) を満たす）
+                database.ref(`games/${gameId}/players/${user.uid}`).set({
+                    uid: user.uid,
+                    nickname: userNickname,
+                    role: 'sente',
+                    connected: true,
+                    joinedAt: firebase.database.ServerValue.TIMESTAMP
+                });
+
                 // 接続解除時に削除
                 database.ref(`games/${gameId}/players/sente`).onDisconnect().remove();
+                database.ref(`games/${gameId}/players/${user.uid}`).onDisconnect().remove();
 
                 // 公開ゲームとしてリストに追加
                 database.ref(`publicGames/${gameId}`).set({
@@ -2329,8 +2339,21 @@
             playerRole = 'gote';
             isOnlineGame = true;
 
-            await ensureAnonAuth();
-            // ゲーム状態を読み込み
+            const user = await ensureAnonAuth();
+            const uid = user.uid;
+            const nickname = localStorage.getItem('userNickname') || '匿名プレイヤー';
+
+            // 先に自分を players/<uid> に登録（awaitで確定）
+            await database.ref(`games/${gameId}/players/${uid}`).set({
+                uid,
+                nickname,
+                role: 'gote',
+                connected: true,
+                joinedAt: firebase.database.ServerValue.TIMESTAMP
+            });
+            database.ref(`games/${gameId}/players/${uid}`).onDisconnect().remove();
+
+            // ここから games/<id> を読み込み（.read 条件を満たす）
             database.ref(`games/${gameId}`).once('value')
                 .then((snapshot) => {
                     if (snapshot.exists()) {
@@ -2353,13 +2376,14 @@
                         updateStatus();
                         updateCounters();
 
-                        // 自分の接続状態を記録
+                        // 従来のroleキーも書いて互換維持
                         database.ref(`games/${gameId}/players/gote`).set({
+                            uid,
                             nickname: userNickname,
                             connected: true
                         });
 
-                        // 切断時に自分の接続状態を削除
+                        // 切断時に従来キーも削除
                         database.ref(`games/${gameId}/players/gote`).onDisconnect().remove();
 
                         // 相手の接続状態を監視
