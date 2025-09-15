@@ -2342,6 +2342,24 @@
             gameOver:false, winner:null, inCheck:{sente:false,gote:false}, lastMove:null
           };
           await gameRef.child('state').set(init);
+
+          // 互換: 旧ロジック向けにトップレベルにも保存
+          const legacy = {
+            currentTurn: init.currentTurn,
+            board: JSON.stringify(init.board),
+            senteHand: JSON.stringify(init.senteHand),
+            goteHand: JSON.stringify(init.goteHand),
+            summonPool: JSON.stringify(init.summonPool),
+            hasSummoned: init.hasSummoned,
+            mustPlaceLastSummoned: init.mustPlaceLastSummoned,
+            lastSummonedPiece: init.lastSummonedPiece,
+            gameOver: init.gameOver,
+            winner: init.winner,
+            inCheck: JSON.stringify(init.inCheck),
+            lastMove: JSON.stringify(init.lastMove),
+            lastUpdate: Date.now()
+          };
+          await gameRef.update(legacy);
         }
 
         // 2人になったら開始、state購読でUI同期
@@ -2357,6 +2375,8 @@
             if (count === 2) {
               // 公開から消す
               firebase.database().ref(`publicGames/${gameId}`).remove();
+              // 状態: 対局中へ
+              try { await gameRef.child('status/phase').set('playing'); } catch(e) { console.warn('status/phase 書き込み失敗', e); }
               // 先手が初期state投入（1回だけ）
               if (playerRole === 'sente') {
                 try {
@@ -2395,6 +2415,36 @@
             setInputEnabled(isMyTurn());
             if (turnIndicator) {
               turnIndicator.textContent = isMyTurn() ? 'あなたの手番です' : '相手の手番です';
+            }
+          });
+
+          // 互換: state が使えない環境向けにトップレベルも監視
+          gameRef.on('value', snap => {
+            const st = snap.child('state').val();
+            if (st) return; // state が使えているならこちらは不要
+            const data = snap.val();
+            if (!data) return;
+            try {
+              gameState.currentTurn = data.currentTurn || gameState.currentTurn;
+              gameState.board       = JSON.parse(data.board || 'null') || gameState.board;
+              gameState.senteHand   = JSON.parse(data.senteHand || '[]');
+              gameState.goteHand    = JSON.parse(data.goteHand || '[]');
+              gameState.summonPool  = JSON.parse(data.summonPool || '[]');
+              gameState.gameOver    = !!data.gameOver;
+              gameState.winner      = data.winner || null;
+
+              if (typeof renderBoard === 'function') renderBoard();
+              if (typeof renderHands === 'function') renderHands();
+              if (typeof renderSummonPool === 'function') renderSummonPool();
+              if (typeof updateStatus === 'function') updateStatus();
+              if (typeof updateCounters === 'function') updateCounters();
+
+              setInputEnabled(isMyTurn());
+              if (turnIndicator) {
+                turnIndicator.textContent = isMyTurn() ? 'あなたの手番です' : '相手の手番です';
+              }
+            } catch (e) {
+              console.warn('レガシー状態の反映に失敗', e);
             }
           });
 
@@ -2570,6 +2620,24 @@
               lastMove: gameState.lastMove
             };
             await database.ref(`games/${gameId}/state`).set(st);
+
+            // 互換: 旧ロジック向けにトップレベルにも保存
+            const legacy = {
+              currentTurn: gameState.currentTurn,
+              board: JSON.stringify(gameState.board),
+              senteHand: JSON.stringify(gameState.senteHand),
+              goteHand: JSON.stringify(gameState.goteHand),
+              summonPool: JSON.stringify(gameState.summonPool),
+              hasSummoned: gameState.hasSummoned,
+              mustPlaceLastSummoned: gameState.mustPlaceLastSummoned,
+              lastSummonedPiece: gameState.lastSummonedPiece,
+              gameOver: gameState.gameOver,
+              winner: gameState.winner,
+              inCheck: JSON.stringify(gameState.inCheck),
+              lastMove: JSON.stringify(gameState.lastMove),
+              lastUpdate: Date.now()
+            };
+            await database.ref(`games/${gameId}`).update(legacy);
         }
 
         // 自分のターンかどうかを確認
