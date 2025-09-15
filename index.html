@@ -1153,6 +1153,15 @@
             </div>
         </div>
 
+        <!-- 役割選択（先手/後手） -->
+        <div id="role-select" class="role-select" style="display: none; margin-top:10px;">
+            <div style="display:flex; gap:8px; justify-content:center;">
+                <button id="choose-sente" style="background:#8B4513; color:#fff; padding:8px 12px; border:none; border-radius:4px; font-weight:bold;">先手になる</button>
+                <button id="choose-gote" style="background:#2d6a4f; color:#fff; padding:8px 12px; border:none; border-radius:4px; font-weight:bold;">後手になる</button>
+            </div>
+            <div id="role-select-msg" style="margin-top:6px; text-align:center; color:#8B4513; font-size:0.9em;"></div>
+        </div>
+
         <div id="game-info" style="display: none;">
             <p>ゲームコード: <span id="game-code"></span></p>
             <p>あなたは<span id="player-role"></span>です</p>
@@ -1654,6 +1663,10 @@
         const gameCodeInput = document.getElementById('game-code-input');
         const joinSubmitButton = document.getElementById('join-submit');
         const turnIndicator = document.getElementById('turn-indicator');
+        const roleSelect = document.getElementById('role-select');
+        const chooseSenteBtn = document.getElementById('choose-sente');
+        const chooseGoteBtn = document.getElementById('choose-gote');
+        const roleSelectMsg = document.getElementById('role-select-msg');
         const publicGamesListElement = document.getElementById('public-games-list'); // 変数名を変更
 
         // タブ切り替え用の要素
@@ -1750,6 +1763,10 @@
                 document.getElementById(tabId).classList.add('active');
             });
         });
+
+        // 役割選択ボタンのイベント
+        if (chooseSenteBtn) chooseSenteBtn.addEventListener('click', () => chooseRole('sente'));
+        if (chooseGoteBtn) chooseGoteBtn.addEventListener('click', () => chooseRole('gote'));
 
         // オンライン対戦イベントリスナー
         if (createGameButton) createGameButton.addEventListener('click', () => {
@@ -2444,6 +2461,18 @@
               if (typeof chatContainer !== 'undefined' && chatContainer) chatContainer.style.display = 'block';
               if (typeof updateTurnIndicator === 'function') updateTurnIndicator();
             }
+
+            // 役割選択UIの表示制御
+            const uid = firebase.auth().currentUser?.uid;
+            const myRoleKnown = !!(players[uid]?.role || (roles && (roles.sente === uid || roles.gote === uid)));
+            if (!gameState.gameOver && isOnlineGame) {
+              // 両役埋まっていない or 自分の役が未確定 → 表示
+              const bothAssigned = !!(roles && roles.sente && roles.gote);
+              roleSelect.style.display = (!bothAssigned || !myRoleKnown) ? 'block' : 'none';
+              roleSelectMsg.textContent = (!bothAssigned) ? '役割を選んでください（先着優先）' : '';
+            } else {
+              roleSelect.style.display = 'none';
+            }
           });
 
           // state 監視: UI反映・入力制御
@@ -2510,6 +2539,31 @@
           const ps = (await gameRef.child('players').once('value')).val() || {};
           const count = Object.values(ps).filter(p => p && p.online !== false).length;
           if (count === 2) await gameRef.child('status/phase').set('playing');
+        }
+
+        // 役割選択（先手/後手）の確定処理（transactionで原子的に確保）
+        async function chooseRole(role){
+          if (!isOnlineGame || !gameId) return;
+          await ensureAnonAuth();
+          const uid = firebase.auth().currentUser.uid;
+          const ref = database.ref(`games/${gameId}`);
+          const tx = await ref.child('roles').transaction(cur => {
+            const roles = cur || {sente:null, gote:null};
+            // 既に自分がどちらかに入っていたら解放してから希望に入る
+            if (roles.sente === uid && role === 'gote') roles.sente = null;
+            if (roles.gote === uid && role === 'sente') roles.gote = null;
+            // 既に他人がその役を取っていたら中止
+            if (role === 'sente' && roles.sente && roles.sente !== uid) return; // abort
+            if (role === 'gote'  && roles.gote  && roles.gote  !== uid) return; // abort
+            // 確保
+            if (role === 'sente') roles.sente = uid; else roles.gote = uid;
+            return roles;
+          });
+          if (!tx.committed) { roleSelectMsg.textContent = 'その役は既に埋まっています'; return; }
+          await ref.child(`players/${uid}/role`).set(role);
+          playerRole = role;
+          if (playerRoleElement) playerRoleElement.textContent = (role === 'sente') ? '先手（あなた）' : '後手（あなた）';
+          roleSelectMsg.textContent = '役割を確定しました';
         }
 
         // phase 変更を監視してUIを有効化
