@@ -2234,7 +2234,8 @@
             status: { phase: 'waiting', turn: 'sente' },
             players: {
               [uid]: { role:'sente', nickname: localStorage.getItem('userNickname'), online:true, joinedAt: now }
-            }
+            },
+            roles: { sente: uid, gote: null }
           });
 
           // 公開リスト（任意）
@@ -2293,7 +2294,7 @@
 
 
 
-        // 参加: トランザクションで役割を決定して登録（同時参加でも正しく割当）
+        // 参加: roles を原子的に確保し、players に反映（同時参加でも一意）
         async function joinGameRoomById(id) {
           await ensureAnonAuth();
           const uid = firebase.auth().currentUser.uid;
@@ -2304,34 +2305,31 @@
 
           const now = Date.now();
           let decidedRole = null;
-          const txn = await gameRef.child('players').transaction(current => {
-            const players = current || {};
-            const ids = Object.keys(players);
-
-            // 既に自分がいれば上書き（role維持）
-            if (players[uid]) {
-              decidedRole = players[uid].role || (ids.length === 1 && players[ids[0]].role === 'sente' ? 'gote' : 'sente');
-              players[uid] = { ...players[uid], role: decidedRole, nickname, online: true, joinedAt: players[uid].joinedAt || now };
-              return players;
-            }
-
-            // 定員オーバー
-            if (ids.length >= 2) return; // abort
-
-            // 既存の役割を見て空いている方に入る
-            const roles = ids.map(k => players[k]?.role).filter(Boolean);
-            decidedRole = roles.includes('sente') ? 'gote' : 'sente';
-            players[uid] = { role: decidedRole, nickname, online: true, joinedAt: now };
-            return players;
+          const roleTxn = await gameRef.child('roles').transaction(cur => {
+            const roles = cur || { sente: null, gote: null };
+            // すでに自分が入っている場合はそのまま
+            if (roles.sente === uid || roles.gote === uid) return roles;
+            // 典型: 先手が埋まっているので後手を確保
+            if (roles.sente && !roles.gote) { decidedRole = 'gote'; roles.gote = uid; return roles; }
+            // 先手が空いている場合は先手へ
+            if (!roles.sente) { decidedRole = 'sente'; roles.sente = uid; return roles; }
+            // それ以外は満員
+            return; // abort
           });
 
-          if (!txn.committed) { alert('この部屋は満員です'); return; }
+          if (!roleTxn.committed) { alert('この部屋は満員です'); return; }
+          // roles に基づき players を更新
+          if (!decidedRole) {
+            const rolesNow = roleTxn.snapshot.val() || {};
+            decidedRole = rolesNow.sente === uid ? 'sente' : 'gote';
+          }
+          await gameRef.child(`players/${uid}`).set({ role: decidedRole, nickname, online: true, joinedAt: now });
 
           // 接続切れ時のフラグ
           gameRef.child(`players/${uid}/online`).onDisconnect().set(false);
 
           // ローカル状態/表示
-          isOnlineGame = true; gameId = id; playerRole = decidedRole || txn.snapshot.val()?.[uid]?.role || 'sente';
+          isOnlineGame = true; gameId = id; playerRole = decidedRole;
           if (gameInfoElement) gameInfoElement.style.display = 'block';
           if (gameCodeElement) gameCodeElement.textContent = gameSnap.val().code || id;
           if (playerRoleElement) playerRoleElement.textContent = (playerRole === 'sente') ? '先手（あなた）' : '後手（あなた）';
@@ -2399,7 +2397,7 @@
           await ensureAnonAuth();
           const gameRef = firebase.database().ref(`games/${gameId}`);
 
-          // players 監視: 2人揃ったら開始処理
+          // players 監視: 2人揃ったら開始処理 + 自分のrole反映
           gameRef.child('players').on('value', async snap => {
             const players = snap.val() || {};
             const count = Object.keys(players).length;
@@ -2410,6 +2408,17 @@
               playerRole = players[me].role;
               if (playerRoleElement) {
                 playerRoleElement.textContent = (playerRole === 'sente') ? '先手（あなた）' : '後手（あなた）';
+              }
+            }
+
+            // 役割マップがある場合はそちらを優先して反映
+            const rolesSnap = await gameRef.child('roles').once('value');
+            const roles = rolesSnap.val();
+            if (roles && me) {
+              const roleFromMap = roles.sente === me ? 'sente' : (roles.gote === me ? 'gote' : null);
+              if (roleFromMap && roleFromMap !== playerRole) {
+                playerRole = roleFromMap;
+                if (playerRoleElement) playerRoleElement.textContent = (playerRole === 'sente') ? '先手（あなた）' : '後手（あなた）';
               }
             }
 
