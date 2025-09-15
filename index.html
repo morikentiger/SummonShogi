@@ -2220,41 +2220,37 @@
             updateTurnIndicator();
         }
 
-        // ルーム作成：初回 .write を通すため完成形を一括 update
-        async function createGameRoom(){
-            const user = await ensureAnonAuth();
-            const uid = user.uid;
-            const nickname = localStorage.getItem('userNickname') || '匿名';
-            const newGameId = generateRandomId();
-            const code = newGameId; // 6文字コードとして使用
+        // 作成: ゲームを waiting で作って待機し、開始を監視
+        async function createGameRoom() {
+          await ensureAnonAuth();
+          const uid = firebase.auth().currentUser.uid;
+          const code = generateRandomId();
+          const id = code; // 便宜上 code をそのまま gameId に
+          const now = Date.now();
 
-            const updates = {};
-            updates[`games/${newGameId}`] = {
-                createdAt: firebase.database.ServerValue.TIMESTAMP,
-                status: 'waiting',
-                turn: 'sente',
-                players: { [uid]: { uid, nickname, role: 'sente', connected: true } }
-            };
-            updates[`publicGames/${newGameId}`] = {
-                host: nickname,
-                code,
-                createdAt: firebase.database.ServerValue.TIMESTAMP
-            };
+          const gameRef = database.ref(`games/${id}`);
+          await gameRef.set({
+            code, createdAt: now,
+            status: { phase: 'waiting', turn: 'sente' },
+            players: {
+              [uid]: { role:'sente', nickname: localStorage.getItem('userNickname'), online:true, joinedAt: now }
+            }
+          });
 
-            await firebase.database().ref().update(updates);
+          // 公開リスト（任意）
+          await database.ref(`publicGames/${id}`).set({ code, host: localStorage.getItem('userNickname'), createdAt: now });
 
-            // UI/状態
-            isOnlineGame = true;
-            gameId = newGameId;
-            playerRole = 'sente';
-            localStorage.setItem('currentGameId', gameId);
-            localStorage.setItem('playerRole', playerRole);
-            gameInfoElement.style.display = 'block';
-            gameCodeElement.textContent = code;
-            playerRoleElement.textContent = '先手';
-            turnIndicator.style.display = 'block';
+          // 接続切れ処理
+          gameRef.child(`players/${uid}/online`).onDisconnect().set(false);
 
-            listenForGameChanges(gameId);
+          isOnlineGame = true; gameId = id; playerRole = 'sente';
+          gameInfoElement.style.display = 'block';
+          gameCodeElement.textContent = code;
+          playerRoleElement.textContent = '先手（あなた）';
+          turnIndicator.style.display = 'block';
+          turnIndicator.textContent = '対戦相手の接続を待っています…';
+
+          watchGameStart(id);
         }
 
         // 部屋の変更を監視する関数
@@ -2297,40 +2293,58 @@
 
 
 
-        // 参加：まず players/<uid> に自分を書いてから購読開始
-        async function joinGameRoomById(targetGameId){
-            const user = await ensureAnonAuth();
-            const uid = user.uid;
-            const nickname = localStorage.getItem('userNickname') || '匿名';
+        // 参加: players に自分を登録し、2人なら開始。開始を監視
+        async function joinGameRoomById(id) {
+          await ensureAnonAuth();
+          const uid = firebase.auth().currentUser.uid;
+          const gameRef = database.ref(`games/${id}`);
+          const snap = await gameRef.once('value');
+          if (!snap.exists()) { alert('部屋が見つかりません'); return; }
 
-            // 1) 参加者として UID キーに登録（await で確定させる）
-            await firebase.database()
-                .ref(`games/${targetGameId}/players/${uid}`)
-                .set({
-                    uid,
-                    nickname,
-                    role: 'gote',
-                    connected: true,
-                    joinedAt: firebase.database.ServerValue.TIMESTAMP
-                });
+          const players = snap.child('players').val() || {};
+          if (Object.keys(players).length >= 2 && !players[uid]) {
+            alert('この部屋は満員です'); return;
+          }
+          const role = players[uid]?.role || (Object.keys(players).length === 1 ? 'gote' : 'sente');
 
-            // 互換：役割キーも必要なら維持
-            await firebase.database().ref(`games/${targetGameId}/players/gote`).set({
-                uid, nickname, connected: true
-            });
-            firebase.database().ref(`games/${targetGameId}/players/gote`).onDisconnect().remove();
+          const now = Date.now();
+          await gameRef.child(`players/${uid}`).set({
+            role, nickname: localStorage.getItem('userNickname'), online:true, joinedAt: now
+          });
+          gameRef.child(`players/${uid}/online`).onDisconnect().set(false);
 
-            // 2) ここから購読（.read 条件を満たした後なので許可される）
-            isOnlineGame = true;
-            gameId = targetGameId;
-            playerRole = 'gote';
-            localStorage.setItem('currentGameId', gameId);
-            localStorage.setItem('playerRole', playerRole);
-            gameInfoElement.style.display = 'block';
-            playerRoleElement.textContent = '後手';
-            turnIndicator.style.display = 'block';
+          // 2人そろっていたら開始へ
+          startGameIfReady(id);
 
-            listenForGameChanges(gameId);
+          isOnlineGame = true; gameId = id; playerRole = role;
+          gameInfoElement.style.display = 'block';
+          gameCodeElement.textContent = snap.val().code || id;
+          playerRoleElement.textContent = role === 'sente' ? '先手（あなた）' : '後手（あなた）';
+          turnIndicator.style.display = 'block';
+
+          watchGameStart(id);
+        }
+
+        // 2人オンラインなら phase を playing に
+        async function startGameIfReady(id) {
+          const gameRef = database.ref(`games/${id}`);
+          const ps = (await gameRef.child('players').once('value')).val() || {};
+          const count = Object.values(ps).filter(p => p && p.online !== false).length;
+          if (count === 2) await gameRef.child('status/phase').set('playing');
+        }
+
+        // phase 変更を監視してUIを有効化
+        function watchGameStart(id) {
+          const sRef = database.ref(`games/${id}/status/phase`);
+          sRef.on('value', s => {
+            if (s && s.val() === 'playing') {
+              turnIndicator.textContent = playerRole === 'sente' ? 'あなたの先手番です' : '先手の着手待ち';
+              // TODO: 既存の盤面初期化/ボタン有効化などを呼ぶ
+              // 例: initGame(); enableBoardForOnline(); 等
+            } else {
+              turnIndicator.textContent = '対戦相手の接続を待っています…';
+            }
+          });
         }
 
         // コードから gameId を検索
