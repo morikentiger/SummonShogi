@@ -1405,13 +1405,27 @@
         }
 
         // Firebaseの初期化コード内または直後に追加
-        firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL)
-        .then(() => {
-            console.log('認証の永続化を設定しました');
-        })
-        .catch((error) => {
-            console.error('認証の永続化の設定に失敗しました:', error);
-        });
+        // 永続化: LOCAL → SESSION → NONE のフォールバック（Safari/シークレット対策）
+        (async () => {
+          try {
+            await firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+            console.log('認証の永続化: LOCAL');
+          } catch (e1) {
+            console.warn('LOCAL 永続化不可。SESSIONへフォールバック', e1);
+            try {
+              await firebase.auth().setPersistence(firebase.auth.Auth.Persistence.SESSION);
+              console.log('認証の永続化: SESSION');
+            } catch (e2) {
+              console.warn('SESSION 永続化不可。NONEへフォールバック', e2);
+              try {
+                await firebase.auth().setPersistence(firebase.auth.Auth.Persistence.NONE);
+                console.log('認証の永続化: NONE');
+              } catch (e3) {
+                console.error('認証の永続化の設定に失敗:', e3);
+              }
+            }
+          }
+        })();
 
         // 認証状態の監視（デバッグ用）
         firebase.auth().onAuthStateChanged(function(user) {
@@ -2302,50 +2316,50 @@
 
 
 
-        // 参加: roles を原子的に確保し、players に反映（同時参加でも一意）
+        // 参加: players を先に確保 → roles を transaction で確保（ルール/並行参加に強い）
         async function joinGameRoomById(id) {
           await ensureAnonAuth();
           const uid = firebase.auth().currentUser.uid;
           const nickname = localStorage.getItem('userNickname') || '匿名';
           const gameRef = database.ref(`games/${id}`);
-
           const now = Date.now();
-          let decidedRole = null;
-          // 旧部屋互換: roles がない場合は players から推定
-          const existingPlayers = (gameSnap.child('players').val() || {});
-          const inferred = { sente: null, gote: null };
-          for (const [pid, p] of Object.entries(existingPlayers)) {
-            if (p?.role === 'sente') inferred.sente = pid;
-            if (p?.role === 'gote')  inferred.gote  = pid;
-          }
 
+          // 公開リストで部屋の存在を確認（publicGames は .read: true）
+          try {
+            const pub = await database.ref(`publicGames/${id}`).once('value');
+            if (!pub.exists()) {
+              // 既に公開リストから消えていても部屋自体は存在する可能性があるので続行
+              console.warn('publicGames に見つからないが、参加処理は続行します');
+            }
+          } catch (_) {}
+
+          // 1) メンバー登録（先に自分を players に置くことで以降の .read/.write を通す）
+          await gameRef.child(`players/${uid}`).update({ nickname, online: true, joinedAt: now });
+          gameRef.child(`players/${uid}/online`).onDisconnect().set(false);
+
+          // 2) 役割を原子的に確保
+          let decidedRole = null;
           const roleTxn = await gameRef.child('roles').transaction(cur => {
             const roles = cur || { sente: null, gote: null };
-            // 空いているところに推定を反映（既存プレイヤーの役割を尊重）
-            if (!roles.sente && inferred.sente) roles.sente = inferred.sente;
-            if (!roles.gote  && inferred.gote)  roles.gote  = inferred.gote;
-            // すでに自分が入っている場合はそのまま
-            if (roles.sente === uid || roles.gote === uid) return roles;
-            // 典型: 先手が埋まっているので後手を確保
-            if (roles.sente && !roles.gote) { decidedRole = 'gote'; roles.gote = uid; return roles; }
-            // 先手が空いている場合は先手へ
+            if (roles.sente === uid || roles.gote === uid) return roles; // 既に確保済み
             if (!roles.sente) { decidedRole = 'sente'; roles.sente = uid; return roles; }
-            // それ以外は満員
-            return; // abort
+            if (!roles.gote)  { decidedRole = 'gote';  roles.gote  = uid; return roles; }
+            return; // 満員
           });
 
-          if (!roleTxn.committed) { alert('この部屋は満員です'); return; }
-          // roles に基づき players を更新
+          if (!roleTxn.committed) {
+            alert('この部屋は満員です');
+            try { await gameRef.child(`players/${uid}`).remove(); } catch(e) {}
+            return;
+          }
+
           if (!decidedRole) {
             const rolesNow = roleTxn.snapshot.val() || {};
             decidedRole = rolesNow.sente === uid ? 'sente' : 'gote';
           }
-          await gameRef.child(`players/${uid}`).set({ role: decidedRole, nickname, online: true, joinedAt: now });
+          await gameRef.child(`players/${uid}/role`).set(decidedRole);
 
-          // 接続切れ時のフラグ
-          gameRef.child(`players/${uid}/online`).onDisconnect().set(false);
-
-          // ローカル状態/表示
+          // 3) ローカル状態/表示
           isOnlineGame = true; gameId = id; playerRole = decidedRole;
           if (gameInfoElement) gameInfoElement.style.display = 'block';
           if (gameCodeElement) gameCodeElement.textContent = id;
