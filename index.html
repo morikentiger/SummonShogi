@@ -2333,13 +2333,30 @@
 
         async function pushInitialStateOnce(gameRef){
           await gameRef.child('meta/startedAt').transaction(v => v || Date.now());
+
+          // 召喚プールを生成（38枚）
+          const pool = [];
+          for (const [piece, info] of Object.entries(pieceTypes)) {
+            for (let i = 0; i < (info.count || 0); i++) pool.push(piece);
+          }
+          // フィッシャー–イェーツでシャッフル
+          for (let i = pool.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [pool[i], pool[j]] = [pool[j], pool[i]];
+          }
+
           const init = {
             currentTurn: 'sente',
             board: gameState.board,
             senteHand: [], goteHand: [],
-            summonPool: [], hasSummoned:false,
-            mustPlaceLastSummoned:false, lastSummonedPiece:null,
-            gameOver:false, winner:null, inCheck:{sente:false,gote:false}, lastMove:null
+            summonPool: pool,
+            hasSummoned: false,
+            mustPlaceLastSummoned: false,
+            lastSummonedPiece: null,
+            gameOver: false,
+            winner: null,
+            inCheck: {sente:false, gote:false},
+            lastMove: null
           };
           await gameRef.child('state').set(init);
 
@@ -2371,6 +2388,16 @@
           gameRef.child('players').on('value', async snap => {
             const players = snap.val() || {};
             const count = Object.keys(players).length;
+
+            // 自分のroleをDBから確定してUIに反映
+            const me = firebase.auth().currentUser?.uid;
+            if (me && players[me]?.role && players[me].role !== playerRole) {
+              playerRole = players[me].role;
+              if (playerRoleElement) {
+                playerRoleElement.textContent = (playerRole === 'sente') ? '先手（あなた）' : '後手（あなた）';
+              }
+            }
+
             opponentConnected = count === 2;
             if (count === 2) {
               // 公開から消す
