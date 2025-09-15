@@ -2353,6 +2353,7 @@
           gameRef.child('players').on('value', async snap => {
             const players = snap.val() || {};
             const count = Object.keys(players).length;
+            opponentConnected = count === 2;
             if (count === 2) {
               // 公開から消す
               firebase.database().ref(`publicGames/${gameId}`).remove();
@@ -2364,6 +2365,7 @@
               if (gameInfoElement) gameInfoElement.style.display = 'block';
               if (turnIndicator) turnIndicator.style.display = 'block';
               if (typeof chatContainer !== 'undefined' && chatContainer) chatContainer.style.display = 'block';
+              if (typeof updateTurnIndicator === 'function') updateTurnIndicator();
             }
           });
 
