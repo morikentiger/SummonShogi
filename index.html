@@ -1136,6 +1136,9 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script> -->
 </head>
 <body>
+    <div id="version-banner" style="width:100%;background:#fffbcc;color:#8B4513;padding:6px 10px;text-align:center;font-weight:bold;border:1px solid #e6d87a;border-radius:6px;margin-bottom:8px;">
+        ver2.1.1先手バグ解消中
+    </div>
     <div class="header">
         <h1>オンライン対戦対応 召喚将棋</h1>
         <div class="user-info" id="user-info" style="display: none;">
@@ -2310,8 +2313,19 @@
 
           const now = Date.now();
           let decidedRole = null;
+          // 旧部屋互換: roles がない場合は players から推定
+          const existingPlayers = (gameSnap.child('players').val() || {});
+          const inferred = { sente: null, gote: null };
+          for (const [pid, p] of Object.entries(existingPlayers)) {
+            if (p?.role === 'sente') inferred.sente = pid;
+            if (p?.role === 'gote')  inferred.gote  = pid;
+          }
+
           const roleTxn = await gameRef.child('roles').transaction(cur => {
             const roles = cur || { sente: null, gote: null };
+            // 空いているところに推定を反映（既存プレイヤーの役割を尊重）
+            if (!roles.sente && inferred.sente) roles.sente = inferred.sente;
+            if (!roles.gote  && inferred.gote)  roles.gote  = inferred.gote;
             // すでに自分が入っている場合はそのまま
             if (roles.sente === uid || roles.gote === uid) return roles;
             // 典型: 先手が埋まっているので後手を確保
