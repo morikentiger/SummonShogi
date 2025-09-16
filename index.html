@@ -1120,7 +1120,7 @@
 </head>
 <body>
     <div id="version-banner" style="width:100%;background:#fffbcc;color:#8B4513;padding:6px 10px;text-align:center;font-weight:bold;border:1px solid #e6d87a;border-radius:6px;margin-bottom:8px;">
-        ver2.3.0 先手バグ解消gpt5codex
+        ver2.3.1 先手バグ解消gpt5codex
     </div>
     <div class="header">
         <h1>オンライン対戦対応 召喚将棋</h1>
@@ -2681,8 +2681,8 @@
                 turnIndicator.style.display = 'none';
                 rematchControls.style.display = 'none';
                 chatContainer.style.display = 'none';
-                createGameButton.disabled = false;
-                joinGameButton.disabled = false;
+                if (createGameButton) createGameButton.disabled = false;
+                if (joinGameButton) joinGameButton.disabled = false;
             }
         }
 
