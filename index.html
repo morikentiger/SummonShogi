@@ -1120,7 +1120,7 @@
 </head>
 <body>
     <div id="version-banner" style="width:100%;background:#fffbcc;color:#8B4513;padding:6px 10px;text-align:center;font-weight:bold;border:1px solid #e6d87a;border-radius:6px;margin-bottom:8px;">
-        ver2.2.4 先手/後手確定＆操作不能修正中
+        ver2.3.0 先手バグ解消gpt5codex
     </div>
     <div class="header">
         <h1>オンライン対戦対応 召喚将棋</h1>
@@ -1405,34 +1405,33 @@
         }
 
         // Firebaseの初期化コード内または直後に追加
-        // 永続化: LOCAL → SESSION → NONE のフォールバック（Safari/シークレット対策）
-        (async () => {
-          try {
-            await firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL);
-            console.log('認証の永続化: LOCAL');
-          } catch (e1) {
-            console.warn('LOCAL 永続化不可。SESSIONへフォールバック', e1);
-            try {
-              await firebase.auth().setPersistence(firebase.auth.Auth.Persistence.SESSION);
-              console.log('認証の永続化: SESSION');
-            } catch (e2) {
-              console.warn('SESSION 永続化不可。NONEへフォールバック', e2);
-              try {
-                await firebase.auth().setPersistence(firebase.auth.Auth.Persistence.NONE);
-                console.log('認証の永続化: NONE');
-              } catch (e3) {
-                console.error('認証の永続化の設定に失敗:', e3);
-              }
-            }
-          }
-        })();
+        firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL)
+        .then(() => {
+            console.log('認証の永続化を設定しました');
+        })
+        .catch((error) => {
+            console.error('認証の永続化の設定に失敗しました:', error);
+        });
 
         // 認証状態の監視（デバッグ用）
         firebase.auth().onAuthStateChanged(function(user) {
             console.log("認証状態:", user ? "認証済み" : "未認証");
         });
 
-        // 旧ロジックの listenForGameChanges は非推奨（attachGameListeners を使用）
+        async function listenForGameChanges(gameId) {
+        await ensureAnonAuth();
+        const gameRef = firebase.database().ref(`games/${gameId}`);
+
+        gameRef.on('value', (snapshot) => {
+            // ゲームデータの処理
+        }, (error) => {
+            console.error('ゲームデータの取得エラー:', error);
+            if (error.code === 'PERMISSION_DENIED') {
+            alert('ゲームデータへのアクセス権限がありません');
+            // エラーリカバリー処理
+            }
+        });
+        }
 
         // ページ読み込み時に実行
         document.addEventListener('DOMContentLoaded', function() {
@@ -1452,7 +1451,7 @@
                         .then(snapshot => {
                             if (snapshot.exists()) {
                                 console.log('前回の対局に復帰します:', savedGameId);
-                                attachGameListeners(savedGameId);
+                                listenForGameChanges(savedGameId);
                             } else {
                                 // 対局が見つからない場合はローカルストレージをクリア
                                 localStorage.removeItem('currentGameId');
@@ -1669,6 +1668,30 @@
         const chooseGoteBtn = document.getElementById('choose-gote');
         const roleSelectMsg = document.getElementById('role-select-msg');
         const publicGamesListElement = document.getElementById('public-games-list'); // 変数名を変更
+
+        // プレイヤーの役割を共通処理で反映
+        function applyPlayerRole(role) {
+            const normalized = role === 'sente' ? 'sente' : (role === 'gote' ? 'gote' : null);
+            playerRole = normalized;
+
+            if (playerRoleElement) {
+                if (normalized) {
+                    playerRoleElement.textContent = normalized === 'sente' ? '先手（あなた）' : '後手（あなた）';
+                } else {
+                    playerRoleElement.textContent = '未確定';
+                }
+            }
+
+            if (normalized) {
+                localStorage.setItem('playerRole', normalized);
+            } else {
+                localStorage.removeItem('playerRole');
+            }
+
+            if (typeof updateTurnIndicator === 'function') {
+                updateTurnIndicator();
+            }
+        }
 
         // タブ切り替え用の要素
         const tabButtons = document.querySelectorAll('.tab-button');
@@ -2207,12 +2230,29 @@
             initGame();
 
             // 役割を入れ替え（先手・後手を交代）
-            if (playerRole === 'sente') {
-                playerRole = 'gote';
-                playerRoleElement.textContent = '後手（白）';
-            } else {
-                playerRole = 'sente';
-                playerRoleElement.textContent = '先手（黒）';
+            const previousRole = playerRole;
+            const nextRole = previousRole === 'sente' ? 'gote' : 'sente';
+            applyPlayerRole(nextRole);
+
+            const uid = firebase.auth().currentUser?.uid;
+            if (uid && gameId) {
+                await database.ref(`games/${gameId}/players/${uid}/role`).set(nextRole);
+                await database.ref(`games/${gameId}/roles`).transaction(roles => {
+                    if (!roles) return roles;
+                    const currentSente = roles.sente;
+                    const currentGote = roles.gote;
+                    if (previousRole === 'sente' && currentSente === uid) {
+                        roles.sente = currentGote || null;
+                        roles.gote = uid;
+                        return roles;
+                    }
+                    if (previousRole === 'gote' && currentGote === uid) {
+                        roles.sente = uid;
+                        roles.gote = currentSente || null;
+                        return roles;
+                    }
+                    return roles;
+                });
             }
 
             // ゲーム状態をFirebaseに初期化
@@ -2253,10 +2293,11 @@
           // 接続切れ処理
           gameRef.child(`players/${uid}/online`).onDisconnect().set(false);
 
-          isOnlineGame = true; gameId = id; playerRole = 'sente';
+          isOnlineGame = true;
+          gameId = id;
+          applyPlayerRole('sente');
           gameInfoElement.style.display = 'block';
           gameCodeElement.textContent = code;
-          playerRoleElement.textContent = '先手（あなた）';
           turnIndicator.style.display = 'block';
           turnIndicator.textContent = '対戦相手の接続を待っています…';
 
@@ -2264,7 +2305,24 @@
         }
 
         // 部屋の変更を監視する関数
-        // 旧ロジックの listenForGameChanges は非推奨（attachGameListeners を使用）
+        async function listenForGameChanges(gameId) {
+        await ensureAnonAuth();
+        const gameRef = firebase.database().ref(`games/${gameId}`);
+
+        // データ変更をリッスン
+        gameRef.on('value', (snapshot) => {
+            const gameData = snapshot.val();
+            if (!gameData) {
+            console.warn('ゲームデータが見つかりません');
+            return;
+            }
+
+            // ゲームの状態に応じた処理
+            updateGameUI(gameData);
+        }, (error) => {
+            console.error('ゲームデータの取得エラー:', error);
+        });
+        }
 
         function initialBoardState() {
             return {
@@ -2286,54 +2344,57 @@
 
 
 
-        // 参加: players を先に確保 → roles を transaction で確保（ルール/並行参加に強い）
+        // 参加: roles を原子的に確保し、players に反映（同時参加でも一意）
         async function joinGameRoomById(id) {
           await ensureAnonAuth();
           const uid = firebase.auth().currentUser.uid;
           const nickname = localStorage.getItem('userNickname') || '匿名';
           const gameRef = database.ref(`games/${id}`);
+          const gameSnap = await gameRef.once('value');
+          if (!gameSnap.exists()) { alert('部屋が見つかりません'); return; }
+
           const now = Date.now();
-
-          // 公開リストで部屋の存在を確認（publicGames は .read: true）
-          try {
-            const pub = await database.ref(`publicGames/${id}`).once('value');
-            if (!pub.exists()) {
-              // 既に公開リストから消えていても部屋自体は存在する可能性があるので続行
-              console.warn('publicGames に見つからないが、参加処理は続行します');
-            }
-          } catch (_) {}
-
-          // 1) メンバー登録（先に自分を players に置くことで以降の .read/.write を通す）
-          await gameRef.child(`players/${uid}`).update({ nickname, online: true, joinedAt: now });
-          gameRef.child(`players/${uid}/online`).onDisconnect().set(false);
-
-          // 2) 役割を原子的に確保
           let decidedRole = null;
-          const roleTxn = await gameRef.child('roles').transaction(cur => {
-            const roles = cur || { sente: null, gote: null };
-            if (roles.sente === uid || roles.gote === uid) return roles; // 既に確保済み
-            if (!roles.sente) { decidedRole = 'sente'; roles.sente = uid; return roles; }
-            if (!roles.gote)  { decidedRole = 'gote';  roles.gote  = uid; return roles; }
-            return; // 満員
-          });
-
-          if (!roleTxn.committed) {
-            alert('この部屋は満員です');
-            try { await gameRef.child(`players/${uid}`).remove(); } catch(e) {}
-            return;
+          // 旧部屋互換: roles がない場合は players から推定
+          const existingPlayers = (gameSnap.child('players').val() || {});
+          const inferred = { sente: null, gote: null };
+          for (const [pid, p] of Object.entries(existingPlayers)) {
+            if (p?.role === 'sente') inferred.sente = pid;
+            if (p?.role === 'gote')  inferred.gote  = pid;
           }
 
+          const roleTxn = await gameRef.child('roles').transaction(cur => {
+            const roles = cur || { sente: null, gote: null };
+            // 空いているところに推定を反映（既存プレイヤーの役割を尊重）
+            if (!roles.sente && inferred.sente) roles.sente = inferred.sente;
+            if (!roles.gote  && inferred.gote)  roles.gote  = inferred.gote;
+            // すでに自分が入っている場合はそのまま
+            if (roles.sente === uid || roles.gote === uid) return roles;
+            // 典型: 先手が埋まっているので後手を確保
+            if (roles.sente && !roles.gote) { decidedRole = 'gote'; roles.gote = uid; return roles; }
+            // 先手が空いている場合は先手へ
+            if (!roles.sente) { decidedRole = 'sente'; roles.sente = uid; return roles; }
+            // それ以外は満員
+            return; // abort
+          });
+
+          if (!roleTxn.committed) { alert('この部屋は満員です'); return; }
+          // roles に基づき players を更新
           if (!decidedRole) {
             const rolesNow = roleTxn.snapshot.val() || {};
             decidedRole = rolesNow.sente === uid ? 'sente' : 'gote';
           }
-          await gameRef.child(`players/${uid}/role`).set(decidedRole);
+          await gameRef.child(`players/${uid}`).set({ role: decidedRole, nickname, online: true, joinedAt: now });
 
-          // 3) ローカル状態/表示
-          isOnlineGame = true; gameId = id; playerRole = decidedRole;
+          // 接続切れ時のフラグ
+          gameRef.child(`players/${uid}/online`).onDisconnect().set(false);
+
+          // ローカル状態/表示
+          isOnlineGame = true;
+          gameId = id;
+          applyPlayerRole(decidedRole);
           if (gameInfoElement) gameInfoElement.style.display = 'block';
-          if (gameCodeElement) gameCodeElement.textContent = id;
-          if (playerRoleElement) playerRoleElement.textContent = (playerRole === 'sente') ? '先手（あなた）' : '後手（あなた）';
+          if (gameCodeElement) gameCodeElement.textContent = gameSnap.val().code || id;
           if (turnIndicator) turnIndicator.style.display = 'block';
 
           await attachGameListeners(id);
@@ -2343,20 +2404,6 @@
         function setInputEnabled(enabled){
           if (typeof summonButton !== 'undefined' && summonButton) summonButton.disabled = !enabled;
           if (typeof passButton !== 'undefined' && passButton) passButton.disabled = !enabled;
-        }
-
-        // 盤面配列を常に 9x9 の二次元配列へ正規化
-        function normalizeBoard(raw){
-          if (Array.isArray(raw) && raw.length === 9 && Array.isArray(raw[0])) return raw;
-          const out = Array.from({length:9}, () => Array(9).fill(null));
-          if (!raw) return out;
-          for (let y = 0; y < 9; y++) {
-            const row = raw[y] || raw[String(y)] || [];
-            for (let x = 0; x < 9; x++) {
-              out[y][x] = row[x] || row[String(x)] || null;
-            }
-          }
-          return out;
         }
 
         async function pushInitialStateOnce(gameRef){
@@ -2419,11 +2466,8 @@
 
             // 自分のroleをDBから確定してUIに反映
             const me = firebase.auth().currentUser?.uid;
-            if (me && players[me]?.role && players[me].role !== playerRole) {
-              playerRole = players[me].role;
-              if (playerRoleElement) {
-                playerRoleElement.textContent = (playerRole === 'sente') ? '先手（あなた）' : '後手（あなた）';
-              }
+            if (me && players[me]?.role) {
+              applyPlayerRole(players[me].role);
             }
 
             // 役割マップがある場合はそちらを優先して反映
@@ -2431,9 +2475,8 @@
             const roles = rolesSnap.val();
             if (roles && me) {
               const roleFromMap = roles.sente === me ? 'sente' : (roles.gote === me ? 'gote' : null);
-              if (roleFromMap && roleFromMap !== playerRole) {
-                playerRole = roleFromMap;
-                if (playerRoleElement) playerRoleElement.textContent = (playerRole === 'sente') ? '先手（あなた）' : '後手（あなた）';
+              if (roleFromMap) {
+                applyPlayerRole(roleFromMap);
               }
             }
 
@@ -2471,12 +2514,26 @@
             }
           });
 
+          // roles ノードの変化を監視してロールを常に同期
+          gameRef.child('roles').on('value', snap => {
+            const roles = snap.val() || {};
+            const me = firebase.auth().currentUser?.uid;
+            if (!me) return;
+            if (roles.sente === me) {
+              applyPlayerRole('sente');
+            } else if (roles.gote === me) {
+              applyPlayerRole('gote');
+            } else if (playerRole) {
+              applyPlayerRole(null);
+            }
+          });
+
           // state 監視: UI反映・入力制御
           gameRef.child('state').on('value', snap => {
             const st = snap.val();
             if (!st) return;
-            gameState.currentTurn = st.currentTurn || gameState.currentTurn || 'sente';
-            gameState.board       = normalizeBoard(st.board);
+            gameState.currentTurn = st.currentTurn;
+            gameState.board       = st.board || gameState.board;
             gameState.senteHand   = st.senteHand || [];
             gameState.goteHand    = st.goteHand || [];
             gameState.summonPool  = st.summonPool || [];
@@ -2490,10 +2547,9 @@
             if (typeof updateStatus === 'function') updateStatus();
             if (typeof updateCounters === 'function') updateCounters();
 
-            const enable = isMyTurn();
-            setInputEnabled(enable);
+            setInputEnabled(isMyTurn());
             if (turnIndicator) {
-              turnIndicator.textContent = enable ? 'あなたの手番です' : '相手の手番です';
+              turnIndicator.textContent = isMyTurn() ? 'あなたの手番です' : '相手の手番です';
             }
           });
 
@@ -2504,8 +2560,8 @@
             const data = snap.val();
             if (!data) return;
             try {
-              gameState.currentTurn = data.currentTurn || gameState.currentTurn || 'sente';
-              gameState.board       = normalizeBoard(JSON.parse(data.board || 'null'));
+              gameState.currentTurn = data.currentTurn || gameState.currentTurn;
+              gameState.board       = JSON.parse(data.board || 'null') || gameState.board;
               gameState.senteHand   = JSON.parse(data.senteHand || '[]');
               gameState.goteHand    = JSON.parse(data.goteHand || '[]');
               gameState.summonPool  = JSON.parse(data.summonPool || '[]');
@@ -2558,8 +2614,7 @@
           });
           if (!tx.committed) { roleSelectMsg.textContent = 'その役は既に埋まっています'; return; }
           await ref.child(`players/${uid}/role`).set(role);
-          playerRole = role;
-          if (playerRoleElement) playerRoleElement.textContent = (role === 'sente') ? '先手（あなた）' : '後手（あなた）';
+          applyPlayerRole(role);
           roleSelectMsg.textContent = '役割を確定しました';
         }
 
@@ -2592,24 +2647,34 @@
         // ゲームルームから離脱
         async function leaveGameRoom() {
             if (isOnlineGame && gameId) {
-                // 監視を解除
                 await ensureAnonAuth();
+                const uid = firebase.auth().currentUser?.uid;
+                const exitingRole = playerRole;
+
+                // 監視を解除
                 database.ref(`games/${gameId}`).off();
 
-                // 自分の接続状態を削除
-                if (playerRole === 'sente') {
-                    database.ref(`games/${gameId}/players/sente`).remove();
-                    // 公開ゲームリストからも削除
-                    database.ref(`publicGames/${gameId}`).remove();
-                } else {
-                    database.ref(`games/${gameId}/players/gote`).remove();
+                if (uid) {
+                    // players から自身を削除
+                    await database.ref(`games/${gameId}/players/${uid}`).remove();
+                    // roles マップを更新
+                    await database.ref(`games/${gameId}/roles`).transaction(roles => {
+                        if (!roles) return roles;
+                        if (roles.sente === uid) roles.sente = null;
+                        if (roles.gote === uid) roles.gote = null;
+                        return roles;
+                    });
+                }
+
+                if (exitingRole === 'sente') {
+                    await database.ref(`publicGames/${gameId}`).remove();
                 }
 
                 // リセット
                 isOnlineGame = false;
                 gameId = null;
-                playerRole = null;
                 opponentConnected = false;
+                applyPlayerRole(null);
 
                 // UI更新
                 gameInfoElement.style.display = 'none';
@@ -2622,7 +2687,52 @@
         }
 
         // ゲーム状態の変更を監視
-        // 旧ロジックの listenForGameChanges は非推奨（attachGameListeners を使用）
+        async function listenForGameChanges() {
+            await ensureAnonAuth();
+            database.ref(`games/${gameId}`).on('value', (snapshot) => {
+                if (!snapshot.exists()) {
+                    alert('ゲームルームが削除されました');
+                    leaveGameRoom();
+                    initGame();
+                    return;
+                }
+
+                const data = snapshot.val();
+
+                // 自分のターンでない場合のみ状態を更新
+                if (!isMyTurn() || data.lastUpdate > (gameState.lastUpdate || 0)) {
+                    gameState.board = JSON.parse(data.board ?? 'null') || Array.from({ length: 9 }, () => Array(9).fill(null));
+                    gameState.senteHand = JSON.parse(data.senteHand);
+                    gameState.goteHand = JSON.parse(data.goteHand);
+                    gameState.summonPool = JSON.parse(data.summonPool);
+                    gameState.currentTurn = data.currentTurn;
+                    gameState.hasSummoned = data.hasSummoned;
+                    gameState.mustPlaceLastSummoned = data.mustPlaceLastSummoned || false;
+                    gameState.gameOver = data.gameOver || false;
+                    gameState.winner = data.winner || null;
+                    gameState.lastUpdate = data.lastUpdate;
+
+                    // 自分のターンになった場合は通知
+                    if (isMyTurn() && gameState.currentTurn !== gameState.previousTurn) {
+                        updateTurnIndicator();
+                    }
+
+                    gameState.previousTurn = gameState.currentTurn;
+
+                    // UI更新
+                    renderBoard();
+                    renderHands();
+                    renderSummonPool();
+                    updateStatus();
+                    updateCounters();
+
+                    // ゲーム終了時はリマッチコントロールを表示
+                    if (gameState.gameOver) {
+                        rematchControls.style.display = 'block';
+                    }
+                }
+            });
+        }
 
         // チャットメッセージを監視
         async function listenForChatMessages() {
@@ -2701,10 +2811,7 @@
 
         // 自分のターンかどうかを確認
         function isMyTurn(){
-          // currentTurn が未設定/壊れているケースを防御
-          if (!isOnlineGame || gameState.gameOver) return false;
-          const turn = gameState.currentTurn || 'sente';
-          return playerRole === turn;
+          return isOnlineGame && playerRole === gameState.currentTurn && !gameState.gameOver;
         }
 
         // ターン表示を更新
@@ -2831,8 +2938,7 @@
                     cell.dataset.y = y;
 
                     // 駒があれば表示
-                    const row = gameState.board[y] || [];
-                    const piece = row[x] || null;
+                    const piece = gameState.board[y][x];
                     if (piece && piece.type) {
                         const pieceElement = document.createElement('div');
                         pieceElement.className = `piece ${piece.owner}`;
