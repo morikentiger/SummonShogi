@@ -796,6 +796,12 @@
             color: #888;
         }
 
+        .public-game-status {
+            font-size: 0.75em;
+            color: #a0522d;
+            font-weight: bold;
+        }
+
         .join-public-button {
             background-color: #4caf50;
             color: white;
@@ -1120,7 +1126,7 @@
 </head>
 <body>
     <div id="version-banner" style="width:100%;background:#fffbcc;color:#8B4513;padding:6px 10px;text-align:center;font-weight:bold;border:1px solid #e6d87a;border-radius:6px;margin-bottom:8px;">
-        ver3.0.0観戦機能追加
+        ver3.0.1観戦機能修正（対局中に部屋が見えなくなるバグ）
     </div>
     <div class="header">
         <h1>オンライン対戦対応 召喚将棋</h1>
@@ -2197,7 +2203,6 @@
 
         // 公開ゲームリストを更新
         function updatePublicGamesList(snapshot) {
-            // リストをクリア
             publicGamesListElement.innerHTML = '';
             if (spectatorGamesListElement) spectatorGamesListElement.innerHTML = '';
             publicGamesData = [];
@@ -2209,75 +2214,75 @@
             }
 
             const games = snapshot.val();
-            const gameItems = [];
+            const gameItems = Object.entries(games).map(([gameId, game]) => ({
+                id: gameId,
+                host: game.host || '匿名',
+                createdAt: game.createdAt || 0,
+                status: game.status || 'waiting'
+            })).sort((a, b) => b.createdAt - a.createdAt);
 
-            // ゲームデータをリストに変換
-            for (const gameId in games) {
-                const game = games[gameId];
-                gameItems.push({
-                    id: gameId,
-                    host: game.host,
-                    createdAt: game.createdAt
-                });
-            }
+            const joinable = gameItems.filter(game => game.status !== 'playing');
+            const watchable = gameItems;
 
-            // 新しい順に並べ替え
-            gameItems.sort((a, b) => b.createdAt - a.createdAt);
-
-            if (gameItems.length === 0) {
-                publicGamesListElement.innerHTML = '<div class="no-games-message">現在公開された部屋はありません</div>';
-                if (spectatorGamesListElement) spectatorGamesListElement.innerHTML = '<div class="no-games-message">現在観戦できる部屋はありません</div>';
-                return;
-            }
-
-            // リストアイテムを生成
-            gameItems.forEach(game => {
-                const gameItem = document.createElement('div');
-                gameItem.className = 'public-game-item';
-
-                const gameInfo = document.createElement('div');
-                gameInfo.className = 'public-game-info';
-
-                const hostElement = document.createElement('div');
-                hostElement.className = 'public-game-host';
-                hostElement.textContent = `${game.host} の部屋`;
-
-                const timeElement = document.createElement('div');
-                timeElement.className = 'public-game-time';
-                timeElement.textContent = formatTime(game.createdAt);
-
-                gameInfo.appendChild(hostElement);
-                gameInfo.appendChild(timeElement);
-
-                const joinButton = document.createElement('button');
-                joinButton.className = 'join-public-button';
-                joinButton.textContent = '参加する';
-                joinButton.addEventListener('click', async () => {
-                    if (!isLoggedIn) { showLoginModal(); return; }
-                    await joinGameRoomById(game.id);
-                });
-
-                gameItem.appendChild(gameInfo);
-                gameItem.appendChild(joinButton);
-
-                publicGamesListElement.appendChild(gameItem);
-
-                if (spectatorGamesListElement) {
-                    const watchItem = gameItem.cloneNode(true);
-                    const watchButton = document.createElement('button');
-                    watchButton.className = 'join-public-button';
-                    watchButton.textContent = '観戦する';
-                    watchButton.addEventListener('click', async () => {
-                        if (!isLoggedIn) { showLoginModal(); return; }
-                        await watchGameRoomById(game.id);
-                    });
-                    // 差し替え
-                    watchItem.lastElementChild.replaceWith(watchButton);
-                    spectatorGamesListElement.appendChild(watchItem);
+            const renderList = (container, items, buttonLabel, handlerBuilder) => {
+                if (!container) return;
+                if (items.length === 0) {
+                    container.innerHTML = buttonLabel === '参加する'
+                        ? '<div class="no-games-message">現在公開された部屋はありません</div>'
+                        : '<div class="no-games-message">現在観戦できる部屋はありません</div>';
+                    return;
                 }
+
+                items.forEach(game => {
+                    const gameItem = document.createElement('div');
+                    gameItem.className = 'public-game-item';
+
+                    const gameInfo = document.createElement('div');
+                    gameInfo.className = 'public-game-info';
+
+                    const hostElement = document.createElement('div');
+                    hostElement.className = 'public-game-host';
+                    hostElement.textContent = `${game.host} の部屋`;
+
+                    const statusElement = document.createElement('div');
+                    statusElement.className = 'public-game-status';
+                    statusElement.textContent = game.status === 'playing' ? '対局中' : '募集中';
+
+                    gameInfo.appendChild(hostElement);
+                    gameInfo.appendChild(statusElement);
+
+                    const timeElement = document.createElement('div');
+                    timeElement.className = 'public-game-time';
+                    timeElement.textContent = formatTime(game.createdAt);
+                    gameInfo.appendChild(timeElement);
+
+                    const actionButton = document.createElement('button');
+                    actionButton.className = 'join-public-button';
+                    actionButton.textContent = buttonLabel;
+                    actionButton.addEventListener('click', handlerBuilder(game));
+
+                    if (buttonLabel === '参加する' && game.status === 'playing') {
+                        actionButton.disabled = true;
+                        actionButton.textContent = '対局中';
+                    }
+
+                    gameItem.appendChild(gameInfo);
+                    gameItem.appendChild(actionButton);
+
+                    container.appendChild(gameItem);
+                });
+            };
+
+            renderList(publicGamesListElement, joinable, '参加する', game => () => {
+                if (!isLoggedIn) { showLoginModal(); return; }
+                joinGameRoomById(game.id);
             });
 
-            // 公開ゲームリストを保存
+            renderList(spectatorGamesListElement, watchable, '観戦する', game => () => {
+                if (!isLoggedIn) { showLoginModal(); return; }
+                watchGameRoomById(game.id);
+            });
+
             publicGamesData = gameItems;
         }
 
@@ -2564,7 +2569,7 @@
           });
 
           // 公開リスト（任意）
-          await database.ref(`publicGames/${id}`).set({ code, host: localStorage.getItem('userNickname'), createdAt: now });
+          await database.ref(`publicGames/${id}`).set({ code, host: localStorage.getItem('userNickname'), createdAt: now, status: 'waiting' });
 
           // 接続切れ処理
           gameRef.child(`players/${uid}/online`).onDisconnect().set(false);
@@ -2794,9 +2799,20 @@
             }
 
             opponentConnected = count === 2;
+
+            // 公開リストのステータス更新（先手のみ）
+            const hostUid = roles && roles.sente;
+            if (hostUid && hostUid === firebase.auth().currentUser?.uid) {
+              try {
+                await firebase.database().ref(`publicGames/${gameId}`).update({
+                  status: count >= 2 ? 'playing' : 'waiting'
+                });
+              } catch (e) {
+                console.warn('publicGames status 更新失敗', e);
+              }
+            }
+
             if (count === 2) {
-              // 公開から消す
-              firebase.database().ref(`publicGames/${gameId}`).remove();
               // 状態: 対局中へ
               try { await gameRef.child('status/phase').set('playing'); } catch(e) { console.warn('status/phase 書き込み失敗', e); }
               // 先手が初期state投入（1回だけ）
