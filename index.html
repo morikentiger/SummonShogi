@@ -1120,7 +1120,7 @@
 </head>
 <body>
     <div id="version-banner" style="width:100%;background:#fffbcc;color:#8B4513;padding:6px 10px;text-align:center;font-weight:bold;border:1px solid #e6d87a;border-radius:6px;margin-bottom:8px;">
-        ver2.4.0 先手バグ解消gpt5codexhigh
+        ver2.5.0通信後盤面消えるバグ解消gpt5codexhigh
     </div>
     <div class="header">
         <h1>オンライン対戦対応 召喚将棋</h1>
@@ -1584,6 +1584,102 @@
             ]
         };
 
+        function serializeBoard(board) {
+            const result = {};
+            if (!Array.isArray(board)) return result;
+            for (let y = 0; y < board.length; y++) {
+                const row = board[y];
+                if (!Array.isArray(row)) continue;
+                for (let x = 0; x < row.length; x++) {
+                    const piece = row[x];
+                    if (piece) {
+                        if (!result[y]) result[y] = {};
+                        result[y][x] = piece;
+                    }
+                }
+            }
+            return result;
+        }
+
+        function deserializeBoard(data) {
+            const board = Array.from({ length: 9 }, () => Array(9).fill(null));
+            if (!data && data !== 0) return board;
+
+            let source = data;
+            if (typeof data === 'string') {
+                try {
+                    source = JSON.parse(data);
+                } catch (e) {
+                    console.warn('盤面データのパースに失敗しました', e);
+                    return board;
+                }
+            }
+
+            if (Array.isArray(source)) {
+                for (let y = 0; y < source.length && y < 9; y++) {
+                    const row = source[y];
+                    if (!row) continue;
+                    if (Array.isArray(row)) {
+                        for (let x = 0; x < row.length && x < 9; x++) {
+                            const piece = row[x];
+                            if (piece) board[y][x] = piece;
+                        }
+                    } else if (typeof row === 'object') {
+                        for (const [xKey, piece] of Object.entries(row)) {
+                            const x = Number(xKey);
+                            if (Number.isInteger(x) && x >= 0 && x < 9 && piece) {
+                                board[y][x] = piece;
+                            }
+                        }
+                    }
+                }
+                return board;
+            }
+
+            if (typeof source === 'object' && source) {
+                for (const [yKey, row] of Object.entries(source)) {
+                    const y = Number(yKey);
+                    if (!Number.isInteger(y) || y < 0 || y >= 9) continue;
+                    if (Array.isArray(row)) {
+                        for (let x = 0; x < row.length && x < 9; x++) {
+                            const piece = row[x];
+                            if (piece) board[y][x] = piece;
+                        }
+                    } else if (typeof row === 'object' && row) {
+                        for (const [xKey, piece] of Object.entries(row)) {
+                            const x = Number(xKey);
+                            if (Number.isInteger(x) && x >= 0 && x < 9 && piece) {
+                                board[y][x] = piece;
+                            }
+                        }
+                    }
+                }
+            }
+
+            return board;
+        }
+
+        function normalizeList(data) {
+            if (!data && data !== 0) return [];
+            if (Array.isArray(data)) return data.filter(item => item !== null && item !== undefined);
+            if (typeof data === 'string') {
+                try {
+                    const parsed = JSON.parse(data);
+                    return normalizeList(parsed);
+                } catch (e) {
+                    console.warn('配列データのパースに失敗しました', e);
+                    return [];
+                }
+            }
+            if (typeof data === 'object') {
+                return Object.keys(data)
+                    .sort((a, b) => Number(a) - Number(b))
+                    .map(key => data[key])
+                    .filter(item => item !== null && item !== undefined);
+            }
+            return [];
+        }
+
         function showNicknameModal() {
             // 統一: ログインモーダル表示は showLoginModal に集約
             if (typeof showLoginModal === 'function') {
@@ -1676,6 +1772,7 @@
                 ensureChatListener().catch(err => console.error('チャットリスナーの開始に失敗しました', err));
                 refreshRematchListener().catch(err => console.error('リマッチリスナーの開始に失敗しました', err));
             } else if (!normalized) {
+                stopChatListener();
                 stopRematchListener();
             }
         }
@@ -2423,9 +2520,11 @@
             [pool[i], pool[j]] = [pool[j], pool[i]];
           }
 
+          const boardData = serializeBoard(gameState.board);
+
           const init = {
             currentTurn: 'sente',
-            board: gameState.board,
+            board: boardData,
             senteHand: [], goteHand: [],
             summonPool: pool,
             hasSummoned: false,
@@ -2441,7 +2540,7 @@
           // 互換: 旧ロジック向けにトップレベルにも保存
           const legacy = {
             currentTurn: init.currentTurn,
-            board: JSON.stringify(init.board),
+            board: JSON.stringify(boardData),
             senteHand: JSON.stringify(init.senteHand),
             goteHand: JSON.stringify(init.goteHand),
             summonPool: JSON.stringify(init.summonPool),
@@ -2535,13 +2634,13 @@
           gameRef.child('state').on('value', snap => {
             const st = snap.val();
             if (!st) return;
-            gameState.currentTurn = st.currentTurn;
-            gameState.board       = st.board || gameState.board;
-            gameState.senteHand   = st.senteHand || [];
-            gameState.goteHand    = st.goteHand || [];
-            gameState.summonPool  = st.summonPool || [];
-            gameState.gameOver    = !!st.gameOver;
-            gameState.winner      = st.winner || null;
+            if ('currentTurn' in st) gameState.currentTurn = st.currentTurn;
+            if ('board' in st) gameState.board = deserializeBoard(st.board);
+            if ('senteHand' in st) gameState.senteHand = normalizeList(st.senteHand);
+            if ('goteHand' in st) gameState.goteHand = normalizeList(st.goteHand);
+            if ('summonPool' in st) gameState.summonPool = normalizeList(st.summonPool);
+            if ('gameOver' in st) gameState.gameOver = !!st.gameOver;
+            if ('winner' in st) gameState.winner = st.winner || null;
 
             // 既存の描画系を呼ぶ（関数が存在する前提）
             if (typeof renderBoard === 'function') renderBoard();
@@ -2570,13 +2669,13 @@
             const data = snap.val();
             if (!data) return;
             try {
-              gameState.currentTurn = data.currentTurn || gameState.currentTurn;
-              gameState.board       = JSON.parse(data.board || 'null') || gameState.board;
-              gameState.senteHand   = JSON.parse(data.senteHand || '[]');
-              gameState.goteHand    = JSON.parse(data.goteHand || '[]');
-              gameState.summonPool  = JSON.parse(data.summonPool || '[]');
-              gameState.gameOver    = !!data.gameOver;
-              gameState.winner      = data.winner || null;
+              if ('currentTurn' in data) gameState.currentTurn = data.currentTurn || gameState.currentTurn;
+              if ('board' in data) gameState.board = deserializeBoard(data.board);
+              if ('senteHand' in data) gameState.senteHand = normalizeList(data.senteHand);
+              if ('goteHand' in data) gameState.goteHand = normalizeList(data.goteHand);
+              if ('summonPool' in data) gameState.summonPool = normalizeList(data.summonPool);
+              if ('gameOver' in data) gameState.gameOver = !!data.gameOver;
+              if ('winner' in data) gameState.winner = data.winner || null;
 
               if (typeof renderBoard === 'function') renderBoard();
               if (typeof renderHands === 'function') renderHands();
@@ -2759,9 +2858,10 @@
         async function syncGameState() {
             if (!isOnlineGame || !gameId) return;
             await ensureAnonAuth();
+            const boardData = serializeBoard(gameState.board);
             const st = {
               currentTurn: gameState.currentTurn,
-              board: gameState.board,
+              board: boardData,
               senteHand: gameState.senteHand,
               goteHand: gameState.goteHand,
               summonPool: gameState.summonPool,
@@ -2778,7 +2878,7 @@
             // 互換: 旧ロジック向けにトップレベルにも保存
             const legacy = {
               currentTurn: gameState.currentTurn,
-              board: JSON.stringify(gameState.board),
+              board: JSON.stringify(boardData),
               senteHand: JSON.stringify(gameState.senteHand),
               goteHand: JSON.stringify(gameState.goteHand),
               summonPool: JSON.stringify(gameState.summonPool),
