@@ -1120,7 +1120,7 @@
 </head>
 <body>
     <div id="version-banner" style="width:100%;background:#fffbcc;color:#8B4513;padding:6px 10px;text-align:center;font-weight:bold;border:1px solid #e6d87a;border-radius:6px;margin-bottom:8px;">
-        ver2.3.1 先手バグ解消gpt5codex
+        ver2.4.0 先手バグ解消gpt5codexhigh
     </div>
     <div class="header">
         <h1>オンライン対戦対応 召喚将棋</h1>
@@ -1418,21 +1418,6 @@
             console.log("認証状態:", user ? "認証済み" : "未認証");
         });
 
-        async function listenForGameChanges(gameId) {
-        await ensureAnonAuth();
-        const gameRef = firebase.database().ref(`games/${gameId}`);
-
-        gameRef.on('value', (snapshot) => {
-            // ゲームデータの処理
-        }, (error) => {
-            console.error('ゲームデータの取得エラー:', error);
-            if (error.code === 'PERMISSION_DENIED') {
-            alert('ゲームデータへのアクセス権限がありません');
-            // エラーリカバリー処理
-            }
-        });
-        }
-
         // ページ読み込み時に実行
         document.addEventListener('DOMContentLoaded', function() {
             // Firebase認証状態の監視
@@ -1442,22 +1427,15 @@
 
                     // 前回の対局があれば復帰
                     const savedGameId = localStorage.getItem('currentGameId');
-                    const playerRole = localStorage.getItem('playerRole');
+                    const savedRole = localStorage.getItem('playerRole');
 
                     if (savedGameId) {
-                        // 対局が存在するか確認
-                        await ensureAnonAuth();
-                        firebase.database().ref(`games/${savedGameId}`).once('value')
-                        .then(snapshot => {
-                            if (snapshot.exists()) {
-                                console.log('前回の対局に復帰します:', savedGameId);
-                                listenForGameChanges(savedGameId);
-                            } else {
-                                // 対局が見つからない場合はローカルストレージをクリア
-                                localStorage.removeItem('currentGameId');
-                                localStorage.removeItem('playerRole');
-                            }
-                        });
+                        try {
+                            console.log('前回の対局に復帰します:', savedGameId);
+                            await resumeSavedGame(savedGameId, savedRole);
+                        } catch (e) {
+                            console.warn('前回の対局への復帰に失敗しました:', e);
+                        }
                     }
                 }
             });
@@ -1494,6 +1472,8 @@
         let opponentConnected = false;
         let rematchOffered = false;
         let rematchAccepted = false;
+        let chatListenerRef = null;
+        let rematchListenerRef = null;
 
         // ユーザー認証用の変数
         let userNickname = null;
@@ -1691,6 +1671,47 @@
             if (typeof updateTurnIndicator === 'function') {
                 updateTurnIndicator();
             }
+
+            if (normalized && isOnlineGame && gameId) {
+                ensureChatListener().catch(err => console.error('チャットリスナーの開始に失敗しました', err));
+                refreshRematchListener().catch(err => console.error('リマッチリスナーの開始に失敗しました', err));
+            } else if (!normalized) {
+                stopRematchListener();
+            }
+        }
+
+        async function resumeSavedGame(savedGameId, savedRole) {
+            if (isOnlineGame && gameId === savedGameId) return;
+            await ensureAnonAuth();
+            const snapshot = await firebase.database().ref(`games/${savedGameId}`).once('value');
+            if (!snapshot.exists()) {
+                localStorage.removeItem('currentGameId');
+                localStorage.removeItem('playerRole');
+                throw new Error('保存された対局が見つかりません');
+            }
+
+            isOnlineGame = true;
+            gameId = savedGameId;
+            localStorage.setItem('currentGameId', savedGameId);
+
+            if (savedRole) {
+                applyPlayerRole(savedRole);
+            } else {
+                const uid = firebase.auth().currentUser?.uid;
+                const data = snapshot.val();
+                const inferredRole = uid && data?.players && data.players[uid]?.role ? data.players[uid].role : null;
+                if (inferredRole) {
+                    applyPlayerRole(inferredRole);
+                } else {
+                    applyPlayerRole(null);
+                }
+            }
+
+            if (gameInfoElement) gameInfoElement.style.display = 'block';
+            if (gameCodeElement) gameCodeElement.textContent = snapshot.val()?.code || savedGameId;
+            if (turnIndicator) turnIndicator.style.display = 'block';
+
+            await attachGameListeners(savedGameId);
         }
 
         // タブ切り替え用の要素
@@ -2295,6 +2316,7 @@
 
           isOnlineGame = true;
           gameId = id;
+          localStorage.setItem('currentGameId', id);
           applyPlayerRole('sente');
           gameInfoElement.style.display = 'block';
           gameCodeElement.textContent = code;
@@ -2302,26 +2324,6 @@
           turnIndicator.textContent = '対戦相手の接続を待っています…';
 
           await attachGameListeners(id);
-        }
-
-        // 部屋の変更を監視する関数
-        async function listenForGameChanges(gameId) {
-        await ensureAnonAuth();
-        const gameRef = firebase.database().ref(`games/${gameId}`);
-
-        // データ変更をリッスン
-        gameRef.on('value', (snapshot) => {
-            const gameData = snapshot.val();
-            if (!gameData) {
-            console.warn('ゲームデータが見つかりません');
-            return;
-            }
-
-            // ゲームの状態に応じた処理
-            updateGameUI(gameData);
-        }, (error) => {
-            console.error('ゲームデータの取得エラー:', error);
-        });
         }
 
         function initialBoardState() {
@@ -2392,6 +2394,7 @@
           // ローカル状態/表示
           isOnlineGame = true;
           gameId = id;
+          localStorage.setItem('currentGameId', id);
           applyPlayerRole(decidedRole);
           if (gameInfoElement) gameInfoElement.style.display = 'block';
           if (gameCodeElement) gameCodeElement.textContent = gameSnap.val().code || id;
@@ -2555,6 +2558,13 @@
 
           // 互換: state が使えない環境向けにトップレベルも監視
           gameRef.on('value', snap => {
+            if (!snap.exists()) {
+              alert('ゲームルームが削除されました');
+              leaveGameRoom().catch(err => console.error('ルーム離脱処理に失敗しました', err));
+              initGame();
+              return;
+            }
+
             const st = snap.child('state').val();
             if (st) return; // state が使えているならこちらは不要
             const data = snap.val();
@@ -2670,11 +2680,15 @@
                     await database.ref(`publicGames/${gameId}`).remove();
                 }
 
+                stopChatListener();
+                stopRematchListener();
+
                 // リセット
                 isOnlineGame = false;
                 gameId = null;
                 opponentConnected = false;
                 applyPlayerRole(null);
+                localStorage.removeItem('currentGameId');
 
                 // UI更新
                 gameInfoElement.style.display = 'none';
@@ -2686,80 +2700,44 @@
             }
         }
 
-        // ゲーム状態の変更を監視
-        async function listenForGameChanges() {
+        async function ensureChatListener() {
+            if (!isOnlineGame || !gameId || chatListenerRef) return;
             await ensureAnonAuth();
-            database.ref(`games/${gameId}`).on('value', (snapshot) => {
-                if (!snapshot.exists()) {
-                    alert('ゲームルームが削除されました');
-                    leaveGameRoom();
-                    initGame();
-                    return;
-                }
-
-                const data = snapshot.val();
-
-                // 自分のターンでない場合のみ状態を更新
-                if (!isMyTurn() || data.lastUpdate > (gameState.lastUpdate || 0)) {
-                    gameState.board = JSON.parse(data.board ?? 'null') || Array.from({ length: 9 }, () => Array(9).fill(null));
-                    gameState.senteHand = JSON.parse(data.senteHand);
-                    gameState.goteHand = JSON.parse(data.goteHand);
-                    gameState.summonPool = JSON.parse(data.summonPool);
-                    gameState.currentTurn = data.currentTurn;
-                    gameState.hasSummoned = data.hasSummoned;
-                    gameState.mustPlaceLastSummoned = data.mustPlaceLastSummoned || false;
-                    gameState.gameOver = data.gameOver || false;
-                    gameState.winner = data.winner || null;
-                    gameState.lastUpdate = data.lastUpdate;
-
-                    // 自分のターンになった場合は通知
-                    if (isMyTurn() && gameState.currentTurn !== gameState.previousTurn) {
-                        updateTurnIndicator();
-                    }
-
-                    gameState.previousTurn = gameState.currentTurn;
-
-                    // UI更新
-                    renderBoard();
-                    renderHands();
-                    renderSummonPool();
-                    updateStatus();
-                    updateCounters();
-
-                    // ゲーム終了時はリマッチコントロールを表示
-                    if (gameState.gameOver) {
-                        rematchControls.style.display = 'block';
-                    }
-                }
-            });
-        }
-
-        // チャットメッセージを監視
-        async function listenForChatMessages() {
-            await ensureAnonAuth();
-            database.ref(`games/${gameId}/chat`).on('child_added', (snapshot) => {
+            chatListenerRef = database.ref(`games/${gameId}/chat`);
+            chatListenerRef.on('child_added', (snapshot) => {
                 const message = snapshot.val();
+                if (!message) return;
 
-                // 自分が送信したメッセージは既に表示済みなのでスキップ
                 if (message.sender !== playerRole) {
                     displayChatMessage(message.message, message.sender, message.nickname, message.timestamp);
                 }
             });
         }
 
-        // リマッチ申し込みを監視
-        async function listenForRematchOffers() {
-            const opponentRole = playerRole === 'sente' ? 'gote' : 'sente';
+        function stopChatListener() {
+            if (chatListenerRef) {
+                chatListenerRef.off();
+                chatListenerRef = null;
+            }
+        }
 
+        async function refreshRematchListener() {
+            if (rematchListenerRef) {
+                rematchListenerRef.off();
+                rematchListenerRef = null;
+            }
+
+            if (!isOnlineGame || !gameId || !playerRole) return;
+
+            const opponentRole = playerRole === 'sente' ? 'gote' : 'sente';
             await ensureAnonAuth();
-            database.ref(`games/${gameId}/rematch/${opponentRole}`).on('value', (snapshot) => {
+            rematchListenerRef = database.ref(`games/${gameId}/rematch/${opponentRole}`);
+            rematchListenerRef.on('value', (snapshot) => {
                 if (snapshot.exists() && snapshot.val().offered === true) {
-                    // 相手からリマッチ申し込みが来た
                     const opponentNickname = snapshot.val().nickname;
                     rematchStatus.textContent = `${opponentNickname}さんからリマッチの申し込みがあります`;
                     rematchControls.style.display = 'block';
 
-                    // 自分もリマッチを申し込んでいる場合は開始
                     database.ref(`games/${gameId}/rematch/${playerRole}`).once('value')
                         .then((mySnapshot) => {
                             if (mySnapshot.exists() && mySnapshot.val().offered === true) {
@@ -2768,6 +2746,13 @@
                         });
                 }
             });
+        }
+
+        function stopRematchListener() {
+            if (rematchListenerRef) {
+                rematchListenerRef.off();
+                rematchListenerRef = null;
+            }
         }
 
         // ゲーム状態をFirebaseに同期（state 下へフラット保存）
