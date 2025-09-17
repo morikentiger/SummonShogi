@@ -109,11 +109,13 @@
         }
 
         .board-area {
+            position: relative;
             display: flex;
             flex-direction: column;
             align-items: center;
             max-width: 100%;
             overflow: auto;
+            padding-bottom: 120px;
         }
 
         .board-toolbar {
@@ -132,10 +134,205 @@
             font-size: 0.85em;
             cursor: pointer;
             transition: background-color 0.2s;
+            flex: none;
         }
 
         .board-toggle-button:hover {
             background-color: var(--button-hover);
+        }
+
+        #chat-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.25);
+            backdrop-filter: blur(6px);
+            display: none;
+            align-items: center;
+            justify-content: flex-end;
+            padding: 40px;
+            box-sizing: border-box;
+            z-index: 9999;
+        }
+
+        #chat-overlay.active {
+            display: flex;
+        }
+
+        body.chat-overlay-active {
+            overflow: hidden;
+        }
+
+        .chat-panel {
+            position: relative;
+            width: min(420px, 90vw);
+            max-height: 90vh;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 12px;
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.35);
+            padding: 24px 24px 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            pointer-events: auto;
+        }
+
+        #result-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.45);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 9998;
+        }
+
+        #result-overlay.active {
+            display: flex;
+        }
+
+        body.result-overlay-active {
+            overflow: hidden;
+        }
+
+        .result-panel {
+            background: radial-gradient(circle at top, rgba(255, 255, 255, 0.98), rgba(245, 245, 245, 0.95));
+            border-radius: 20px;
+            padding: 48px 56px;
+            text-align: center;
+            box-shadow: 0 40px 80px rgba(0, 0, 0, 0.4);
+            max-width: 520px;
+            width: 90vw;
+            transform: scale(0.85);
+            opacity: 0;
+            animation: result-pop-in 0.4s ease-out forwards;
+        }
+
+        #result-title {
+            font-size: 3rem;
+            margin-bottom: 12px;
+            font-family: 'Noto Serif JP', serif;
+            letter-spacing: 0.2em;
+        }
+
+        #result-subtitle {
+            font-size: 1.1rem;
+            color: #555;
+            margin-bottom: 28px;
+        }
+
+        .result-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .result-button {
+            min-width: 140px;
+            padding: 12px 18px;
+            border-radius: 999px;
+            border: none;
+            font-weight: bold;
+            background: var(--button-primary);
+            color: #fff;
+            cursor: pointer;
+            box-shadow: 0 8px 18px rgba(0, 0, 0, 0.25);
+            transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+            flex: none;
+        }
+
+        .result-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
+            background: var(--button-hover);
+        }
+
+        .result-button:active {
+            transform: translateY(1px);
+        }
+
+        @keyframes result-pop-in {
+            0% { opacity: 0; transform: scale(0.85); }
+            60% { opacity: 1; transform: scale(1.05); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+
+        .chat-close-button {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: rgba(0, 0, 0, 0.1);
+            border: none;
+            color: #444;
+            font-size: 1.2em;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s ease, transform 0.2s ease;
+            flex: none;
+        }
+
+        .chat-close-button:hover {
+            background: rgba(0, 0, 0, 0.2);
+            transform: scale(1.05);
+        }
+
+        .chat-container {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        #summon-button {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90px;
+            height: 90px;
+            border-radius: 50%;
+            background-color: #e60000;
+            color: #fff;
+            font-size: 1.1em;
+            font-weight: bold;
+            writing-mode: vertical-rl;
+            text-orientation: upright;
+            letter-spacing: 0.2em;
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 10px 25px rgba(230, 0, 0, 0.35);
+            transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+            padding: 0;
+            flex: none;
+            z-index: 5;
+        }
+
+        #summon-button:hover:not(:disabled),
+        #summon-button:focus-visible:not(:disabled) {
+            background-color: #e60000;
+            transform: translateX(-50%) scale(1.1);
+            box-shadow: 0 14px 30px rgba(230, 0, 0, 0.45);
+        }
+
+        #summon-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: translateX(-50%);
+            box-shadow: none;
+            background-color: #e60000;
+        }
+
+        #summon-button:active:not(:disabled) {
+            transform: translateX(-50%) scale(0.96);
         }
 
         .coordinates {
@@ -1155,13 +1352,45 @@
 </head>
 <body>
     <div id="version-banner" style="width:100%;background:#fffbcc;color:#8B4513;padding:6px 10px;text-align:center;font-weight:bold;border:1px solid #e6d87a;border-radius:6px;margin-bottom:8px;">
-        ver3.1.1盤面だけでなく駒の表示向きも反転
+        ver3.2.0召喚ボタン・チャットオーバーレイ・決着時表示大
     </div>
     <div class="header">
         <h1>オンライン対戦対応 召喚将棋</h1>
         <div class="user-info" id="user-info" style="display: none;">
             <div class="user-avatar" id="user-avatar">N</div>
             <span id="user-nickname">未ログイン</span>
+        </div>
+    </div>
+
+    <div id="chat-overlay" aria-hidden="true">
+        <div class="chat-panel" role="dialog" aria-modal="true" aria-labelledby="chat-title">
+            <button id="chat-close-button" class="chat-close-button" aria-label="チャットを閉じる">×</button>
+            <div class="chat-container" id="chat-container">
+                <h3 id="chat-title">チャット</h3>
+                <div class="preset-messages">
+                    <div class="preset-message">よろしくお願いします</div>
+                    <div class="preset-message">いい勝負でした</div>
+                    <div class="preset-message">考え中です</div>
+                    <div class="preset-message">ありがとうございました</div>
+                    <div class="preset-message">また対戦しましょう</div>
+                </div>
+                <div class="chat-messages" id="chat-messages"></div>
+                <div class="chat-input-container">
+                    <input type="text" id="chat-input" placeholder="メッセージを入力...">
+                    <button id="chat-submit">送信</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="result-overlay" aria-hidden="true">
+        <div class="result-panel" role="dialog" aria-modal="true" aria-labelledby="result-title">
+            <div id="result-title">勝利</div>
+            <p id="result-subtitle">おめでとうございます！</p>
+            <div class="result-buttons">
+                <button id="result-rematch-button" class="result-button">もう一局</button>
+                <button id="result-replay-button" class="result-button">リプレイ</button>
+            </div>
         </div>
     </div>
 
@@ -1229,22 +1458,6 @@
         </div>
     </div>
 
-    <div class="chat-container" id="chat-container">
-        <h3>チャット</h3>
-        <div class="preset-messages">
-            <div class="preset-message">よろしくお願いします</div>
-            <div class="preset-message">いい勝負でした</div>
-            <div class="preset-message">考え中です</div>
-            <div class="preset-message">ありがとうございました</div>
-            <div class="preset-message">また対戦しましょう</div>
-        </div>
-        <div class="chat-messages" id="chat-messages"></div>
-        <div class="chat-input-container">
-            <input type="text" id="chat-input" placeholder="メッセージを入力...">
-            <button id="chat-submit">送信</button>
-        </div>
-    </div>
-
     <div class="game-container game-layout">
         <div class="controls">
             <!-- 後手の持ち駒 -->
@@ -1257,6 +1470,7 @@
             <div class="board-area" id="board-area">
                 <div class="board-toolbar">
                     <button id="flip-board-button" class="board-toggle-button">盤面反転</button>
+                    <button id="chat-toggle-button" class="board-toggle-button">チャット</button>
                 </div>
                 <div class="coordinates" id="column-coordinates">
                     <div>9</div><div>8</div><div>7</div><div>6</div><div>5</div><div>4</div><div>3</div><div>2</div><div>1</div>
@@ -1267,6 +1481,7 @@
                     </div>
                     <div class="board" id="board"></div>
                 </div>
+                <button id="summon-button" disabled>召喚</button>
             </div>
 
             <!-- 先手の持ち駒 -->
@@ -1291,7 +1506,6 @@
             <div class="status-panel">
                 <div class="status" id="status">ゲームを開始します</div>
                 <div class="action-buttons">
-                    <button id="summon-button" disabled>召喚する</button>
                     <button id="pass-button" disabled>パス</button>
                     <button id="reset-button">リセット</button>
                 </div>
@@ -1652,6 +1866,34 @@
             ]
         };
 
+        function normalizeOwner(owner) {
+            if (owner === 'sente' || owner === 'gote') return owner;
+            if (!owner && owner !== 0) return null;
+            const normalized = String(owner).toLowerCase();
+            if (normalized.includes('sente') || normalized.includes('先手') || normalized.includes('black') || normalized.includes('先攻')) {
+                return 'sente';
+            }
+            if (normalized.includes('gote') || normalized.includes('後手') || normalized.includes('white') || normalized.includes('後攻')) {
+                return 'gote';
+            }
+            return null;
+        }
+
+        function createPiece(type, owner) {
+            const normalizedOwner = normalizeOwner(owner) || 'sente';
+            return { type, owner: normalizedOwner };
+        }
+
+        function addPieceToHand(owner, pieceType) {
+            const normalizedOwner = normalizeOwner(owner);
+            if (!normalizedOwner) return;
+            if (normalizedOwner === 'sente') {
+                gameState.senteHand.push(pieceType);
+            } else if (normalizedOwner === 'gote') {
+                gameState.goteHand.push(pieceType);
+            }
+        }
+
         function serializeBoard(board) {
             const result = {};
             if (!Array.isArray(board)) return result;
@@ -1662,7 +1904,7 @@
                     const piece = row[x];
                     if (piece) {
                         if (!result[y]) result[y] = {};
-                        result[y][x] = piece;
+                        result[y][x] = createPiece(piece.type, piece.owner);
                     }
                 }
             }
@@ -1690,13 +1932,17 @@
                     if (Array.isArray(row)) {
                         for (let x = 0; x < row.length && x < 9; x++) {
                             const piece = row[x];
-                            if (piece) board[y][x] = piece;
+                            if (piece) {
+                                const normalizedPiece = typeof piece === 'object' ? piece : { type: piece, owner: null };
+                                board[y][x] = createPiece(normalizedPiece.type, normalizedPiece.owner);
+                            }
                         }
                     } else if (typeof row === 'object') {
                         for (const [xKey, piece] of Object.entries(row)) {
                             const x = Number(xKey);
                             if (Number.isInteger(x) && x >= 0 && x < 9 && piece) {
-                                board[y][x] = piece;
+                                const normalizedPiece = typeof piece === 'object' ? piece : { type: piece, owner: null };
+                                board[y][x] = createPiece(normalizedPiece.type, normalizedPiece.owner);
                             }
                         }
                     }
@@ -1711,13 +1957,17 @@
                     if (Array.isArray(row)) {
                         for (let x = 0; x < row.length && x < 9; x++) {
                             const piece = row[x];
-                            if (piece) board[y][x] = piece;
+                            if (piece) {
+                                const normalizedPiece = typeof piece === 'object' ? piece : { type: piece, owner: null };
+                                board[y][x] = createPiece(normalizedPiece.type, normalizedPiece.owner);
+                            }
                         }
                     } else if (typeof row === 'object' && row) {
                         for (const [xKey, piece] of Object.entries(row)) {
                             const x = Number(xKey);
                             if (Number.isInteger(x) && x >= 0 && x < 9 && piece) {
-                                board[y][x] = piece;
+                                const normalizedPiece = typeof piece === 'object' ? piece : { type: piece, owner: null };
+                                board[y][x] = createPiece(normalizedPiece.type, normalizedPiece.owner);
                             }
                         }
                     }
@@ -1790,6 +2040,74 @@
             if (forceRender && typeof renderBoard === 'function') {
                 renderBoard();
             }
+        }
+
+        const CHAT_OVERLAY_STORAGE_KEY = 'chatOverlayOpen';
+
+        function isChatOverlayActive() {
+            return chatOverlay && chatOverlay.classList.contains('active');
+        }
+
+        function openChatOverlay(saveState = true) {
+            if (!chatOverlay) return;
+            chatOverlay.classList.add('active');
+            chatOverlay.setAttribute('aria-hidden', 'false');
+            document.body.classList.add('chat-overlay-active');
+            if (saveState) localStorage.setItem(CHAT_OVERLAY_STORAGE_KEY, 'true');
+            if (chatInput && !chatInput.disabled) {
+                setTimeout(() => chatInput.focus({ preventScroll: true }), 0);
+            }
+        }
+
+        function closeChatOverlay(saveState = true) {
+            if (!chatOverlay) return;
+            chatOverlay.classList.remove('active');
+            chatOverlay.setAttribute('aria-hidden', 'true');
+            document.body.classList.remove('chat-overlay-active');
+            if (saveState) localStorage.setItem(CHAT_OVERLAY_STORAGE_KEY, 'false');
+        }
+
+        function restoreChatOverlayState() {
+            const stored = localStorage.getItem(CHAT_OVERLAY_STORAGE_KEY);
+            if (stored === 'true') {
+                openChatOverlay(false);
+            } else {
+                closeChatOverlay(false);
+            }
+        }
+
+        function hideResultOverlay(updateState = true) {
+            if (!resultOverlay) return;
+            resultOverlay.classList.remove('active');
+            resultOverlay.setAttribute('aria-hidden', 'true');
+            document.body.classList.remove('result-overlay-active');
+            if (updateState) {
+                // No persistence for now; placeholder
+            }
+        }
+
+        function showResultOverlay(outcome) {
+            if (!resultOverlay) return;
+            let title = '対局終了';
+            let subtitle = '対局が終了しました。';
+
+            if (outcome === 'win') {
+                title = '勝 利';
+                subtitle = 'おめでとうございます！';
+            } else if (outcome === 'lose') {
+                title = '敗 北';
+            } else if (outcome === 'sente-win') {
+                title = '先手 勝利';
+            } else if (outcome === 'gote-win') {
+                title = '後手 勝利';
+            }
+
+            if (resultTitle) resultTitle.textContent = title;
+            if (resultSubtitle) resultSubtitle.textContent = subtitle;
+
+            resultOverlay.classList.add('active');
+            resultOverlay.setAttribute('aria-hidden', 'false');
+            document.body.classList.add('result-overlay-active');
         }
 
         function updateParticipantListDisplay() {
@@ -2024,10 +2342,18 @@
 
         // チャット機能用のUI要素
         const chatContainer = document.getElementById('chat-container');
+        const chatOverlay = document.getElementById('chat-overlay');
+        const chatCloseButton = document.getElementById('chat-close-button');
+        const chatToggleButton = document.getElementById('chat-toggle-button');
         const chatMessages = document.getElementById('chat-messages');
         const chatInput = document.getElementById('chat-input');
         const chatSubmit = document.getElementById('chat-submit');
         const presetMessages = document.querySelectorAll('.preset-message');
+        const resultOverlay = document.getElementById('result-overlay');
+        const resultTitle = document.getElementById('result-title');
+        const resultSubtitle = document.getElementById('result-subtitle');
+        const resultRematchButton = document.getElementById('result-rematch-button');
+        const resultReplayButton = document.getElementById('result-replay-button');
 
         // ログイン機能用のUI要素
         const loginModal = document.getElementById('login-modal');
@@ -2092,6 +2418,8 @@
 
             // 公開ゲームリストの取得を開始
             startPublicGamesRefresh();
+
+            restoreChatOverlayState();
         });
 
         // タブ切り替え
@@ -2172,6 +2500,66 @@
                 }
                 isBoardFlipped = newState;
                 updateBoardFlipState(true);
+            });
+        }
+
+        if (chatToggleButton) {
+            chatToggleButton.addEventListener('click', () => {
+                if (isChatOverlayActive()) {
+                    closeChatOverlay();
+                } else {
+                    openChatOverlay();
+                }
+            });
+        }
+
+        if (chatCloseButton) {
+            chatCloseButton.addEventListener('click', () => closeChatOverlay());
+        }
+
+        if (chatOverlay) {
+            chatOverlay.addEventListener('click', (event) => {
+                if (event.target === chatOverlay) {
+                    closeChatOverlay();
+                }
+            });
+        }
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && isChatOverlayActive()) {
+                event.preventDefault();
+                closeChatOverlay();
+            }
+            if (event.key === 'Escape' && resultOverlay && resultOverlay.classList.contains('active')) {
+                event.preventDefault();
+                hideResultOverlay();
+            }
+        });
+
+        if (resultOverlay) {
+            resultOverlay.addEventListener('click', (event) => {
+                if (event.target === resultOverlay) {
+                    hideResultOverlay();
+                }
+            });
+        }
+
+        if (resultRematchButton) {
+            resultRematchButton.addEventListener('click', () => {
+                hideResultOverlay();
+                if (isOnlineGame && !isSpectator) {
+                    offerRematch();
+                } else {
+                    initGame();
+                }
+            });
+        }
+
+        if (resultReplayButton) {
+            resultReplayButton.addEventListener('click', () => {
+                hideResultOverlay();
+                console.log('Replay feature is under construction.');
+                alert('リプレイ機能は準備中です。');
             });
         }
 
@@ -2692,6 +3080,7 @@
           turnIndicator.textContent = '対戦相手の接続を待っています…';
 
           await attachGameListeners(id);
+          restoreChatOverlayState();
         }
 
         function initialBoardState() {
@@ -2770,6 +3159,7 @@
           if (turnIndicator) turnIndicator.style.display = 'block';
 
           await attachGameListeners(id);
+          restoreChatOverlayState();
         }
 
         async function registerSpectator(gameId) {
@@ -2804,7 +3194,7 @@
           if (gameInfoElement) gameInfoElement.style.display = 'block';
           if (gameCodeElement) gameCodeElement.textContent = gameSnap.val()?.code || id;
           if (turnIndicator) turnIndicator.style.display = 'block';
-          if (chatContainer) chatContainer.style.display = 'block';
+          restoreChatOverlayState();
           if (rematchControls) rematchControls.style.display = 'none';
           if (rematchButton) rematchButton.disabled = true;
 
@@ -2933,7 +3323,7 @@
               }
               if (gameInfoElement) gameInfoElement.style.display = 'block';
               if (turnIndicator) turnIndicator.style.display = 'block';
-              if (typeof chatContainer !== 'undefined' && chatContainer) chatContainer.style.display = 'block';
+              restoreChatOverlayState();
               if (typeof updateTurnIndicator === 'function') updateTurnIndicator();
             }
 
@@ -3142,12 +3532,13 @@
                 applyPlayerRole(null);
                 localStorage.removeItem('currentGameId');
                 updateParticipantListDisplay();
+                hideResultOverlay(false);
 
                 // UI更新
                 gameInfoElement.style.display = 'none';
                 turnIndicator.style.display = 'none';
                 rematchControls.style.display = 'none';
-                chatContainer.style.display = 'none';
+                closeChatOverlay(false);
                 if (chatMessages) chatMessages.innerHTML = '';
                 if (createGameButton) createGameButton.disabled = false;
                 if (joinGameButton) joinGameButton.disabled = false;
@@ -3302,6 +3693,7 @@
 
         // ゲームを初期化
         function initGame() {
+            hideResultOverlay(false);
             // ボードをクリア
             gameState.board = Array(9).fill().map(() => Array(9).fill(null));
             gameState.senteHand = [];
@@ -3581,7 +3973,8 @@
 
         // 持ち駒がクリックされたときの処理
         function handleHandPieceClick(pieceType, owner) {
-            if (gameState.gameOver || owner !== gameState.currentTurn) return;
+            const normalizedOwner = normalizeOwner(owner);
+            if (gameState.gameOver || normalizedOwner !== gameState.currentTurn) return;
 
             // オンライン対戦時は自分のターンのみ操作可能
             if (isOnlineGame && !isMyTurn()) {
@@ -3594,7 +3987,7 @@
             }
 
             // 選択をクリア
-            gameState.selectedPiece = { type: pieceType, owner, fromHand: true };
+            gameState.selectedPiece = { type: pieceType, owner: normalizedOwner, fromHand: true };
             gameState.selectedCell = null;
             gameState.possibleMoves = calculateDropPositions(pieceType);
 
@@ -3609,21 +4002,19 @@
         // 駒を移動
         function movePiece(toX, toY) {
             const { selectedPiece, selectedCell } = gameState;
+            const movingOwner = normalizeOwner(selectedPiece.owner) || gameState.currentTurn;
 
             // 持ち駒を置く場合
             if (selectedPiece.fromHand) {
                 // 持ち駒から削除
-                const hand = selectedPiece.owner === 'sente' ? gameState.senteHand : gameState.goteHand;
+                const hand = movingOwner === 'sente' ? gameState.senteHand : gameState.goteHand;
                 const index = hand.indexOf(selectedPiece.type);
                 if (index !== -1) {
                     hand.splice(index, 1);
                 }
 
                 // ボードに配置
-                gameState.board[toY][toX] = {
-                    type: selectedPiece.type,
-                    owner: selectedPiece.owner
-                };
+                gameState.board[toY][toX] = createPiece(selectedPiece.type, movingOwner);
 
                 // 最後の移動を記録
                 gameState.lastMove = {
@@ -3660,11 +4051,7 @@
 
                     // 王や玉は取れない（念のためチェック）
                     if (capturedType !== '王' && capturedType !== '玉') {
-                        if (gameState.currentTurn === 'sente') {
-                            gameState.senteHand.push(capturedType);
-                        } else {
-                            gameState.goteHand.push(capturedType);
-                        }
+                        addPieceToHand(movingOwner, capturedType);
                     }
 
                     playSound('capture');
@@ -3673,10 +4060,7 @@
                 }
 
                 // 駒を移動
-                gameState.board[toY][toX] = {
-                    type: selectedPiece.type,
-                    owner: selectedPiece.owner
-                };
+                gameState.board[toY][toX] = createPiece(selectedPiece.type, movingOwner);
                 gameState.board[fromY][fromX] = null;
 
                 // 最後の移動を記録
@@ -3846,6 +4230,21 @@
 
             // ターン表示を更新
             updateTurnIndicator();
+
+            const winner = gameState.winner;
+            let outcomeKey = null;
+            if (winner) {
+                if (isSpectator || !(playerRole === 'sente' || playerRole === 'gote')) {
+                    outcomeKey = winner === 'sente' ? 'sente-win' : 'gote-win';
+                } else {
+                    outcomeKey = winner === playerRole ? 'win' : 'lose';
+                }
+            }
+            if (outcomeKey) {
+                showResultOverlay(outcomeKey);
+            } else {
+                showResultOverlay('');
+            }
         }
 
         // 王手の確認
@@ -4259,11 +4658,7 @@
             gameState.summonPool.splice(randomIndex, 1);
 
             // 持ち駒に追加
-            if (gameState.currentTurn === 'sente') {
-                gameState.senteHand.push(piece);
-            } else {
-                gameState.goteHand.push(piece);
-            }
+            addPieceToHand(gameState.currentTurn, piece);
 
             // 召喚済みフラグを立てる
             gameState.hasSummoned = true;
