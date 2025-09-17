@@ -123,6 +123,7 @@
             justify-content: flex-end;
             width: 100%;
             margin-bottom: 6px;
+            gap: 8px;
         }
 
         .board-toggle-button {
@@ -256,6 +257,43 @@
             60% { opacity: 1; transform: scale(1.05); }
             100% { opacity: 1; transform: scale(1); }
         }
+
+        #toast-container {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 10000;
+            pointer-events: none;
+        }
+
+        .toast {
+            min-width: 240px;
+            max-width: 420px;
+            padding: 12px 18px;
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.75);
+            color: #fff;
+            font-weight: bold;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            opacity: 0;
+            transform: translateY(10px);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            pointer-events: auto;
+        }
+
+        .toast.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .toast-info { background: rgba(33, 150, 243, 0.9); }
+        .toast-success { background: rgba(46, 204, 113, 0.9); }
+        .toast-warn { background: rgba(241, 196, 15, 0.92); color: #4a3600; }
+        .toast-error { background: rgba(231, 76, 60, 0.92); }
 
         .chat-close-button {
             position: absolute;
@@ -1352,7 +1390,7 @@
 </head>
 <body>
     <div id="version-banner" style="width:100%;background:#fffbcc;color:#8B4513;padding:6px 10px;text-align:center;font-weight:bold;border:1px solid #e6d87a;border-radius:6px;margin-bottom:8px;">
-        ver3.2.0召喚ボタン・チャットオーバーレイ・決着時表示大
+        ver3.2.1召喚ボタン・チャットオーバーレイ・決着時表示大など
     </div>
     <div class="header">
         <h1>オンライン対戦対応 召喚将棋</h1>
@@ -1393,6 +1431,8 @@
             </div>
         </div>
     </div>
+
+    <div id="toast-container" aria-live="polite" aria-atomic="true"></div>
 
     <div class="online-controls">
         <h3>オンライン対戦</h3>
@@ -1780,7 +1820,9 @@
             winner: null, // 勝者を記録
             inCheck: { sente: false, gote: false },
             lastMove: null,
-            pendingPromotion: null
+            pendingPromotion: null,
+            lastMoveId: null,
+            lastProcessedMoveId: null
         };
 
         // 駒の種類と初期数
@@ -1879,8 +1921,8 @@
             return null;
         }
 
-        function createPiece(type, owner) {
-            const normalizedOwner = normalizeOwner(owner) || 'sente';
+        function createPiece(type, owner, fallbackOwner = 'sente') {
+            const normalizedOwner = normalizeOwner(owner) || normalizeOwner(fallbackOwner) || 'sente';
             return { type, owner: normalizedOwner };
         }
 
@@ -1893,6 +1935,12 @@
                 gameState.goteHand.push(pieceType);
             }
         }
+
+        const chatSendQueue = [];
+        let isRealtimeConnected = true;
+        let isFlushingChatQueue = false;
+        const displayedChatMessageIds = new Set();
+        let connectionMonitorInitialized = false;
 
         function serializeBoard(board) {
             const result = {};
@@ -1934,7 +1982,8 @@
                             const piece = row[x];
                             if (piece) {
                                 const normalizedPiece = typeof piece === 'object' ? piece : { type: piece, owner: null };
-                                board[y][x] = createPiece(normalizedPiece.type, normalizedPiece.owner);
+                                const fallbackOwner = y >= 4 ? 'sente' : 'gote';
+                                board[y][x] = createPiece(normalizedPiece.type, normalizedPiece.owner, fallbackOwner);
                             }
                         }
                     } else if (typeof row === 'object') {
@@ -1942,7 +1991,8 @@
                             const x = Number(xKey);
                             if (Number.isInteger(x) && x >= 0 && x < 9 && piece) {
                                 const normalizedPiece = typeof piece === 'object' ? piece : { type: piece, owner: null };
-                                board[y][x] = createPiece(normalizedPiece.type, normalizedPiece.owner);
+                                const fallbackOwner = y >= 4 ? 'sente' : 'gote';
+                                board[y][x] = createPiece(normalizedPiece.type, normalizedPiece.owner, fallbackOwner);
                             }
                         }
                     }
@@ -1959,7 +2009,8 @@
                             const piece = row[x];
                             if (piece) {
                                 const normalizedPiece = typeof piece === 'object' ? piece : { type: piece, owner: null };
-                                board[y][x] = createPiece(normalizedPiece.type, normalizedPiece.owner);
+                                const fallbackOwner = y >= 4 ? 'sente' : 'gote';
+                                board[y][x] = createPiece(normalizedPiece.type, normalizedPiece.owner, fallbackOwner);
                             }
                         }
                     } else if (typeof row === 'object' && row) {
@@ -1967,7 +2018,8 @@
                             const x = Number(xKey);
                             if (Number.isInteger(x) && x >= 0 && x < 9 && piece) {
                                 const normalizedPiece = typeof piece === 'object' ? piece : { type: piece, owner: null };
-                                board[y][x] = createPiece(normalizedPiece.type, normalizedPiece.owner);
+                                const fallbackOwner = y >= 4 ? 'sente' : 'gote';
+                                board[y][x] = createPiece(normalizedPiece.type, normalizedPiece.owner, fallbackOwner);
                             }
                         }
                     }
@@ -2110,6 +2162,105 @@
             document.body.classList.add('result-overlay-active');
         }
 
+        function updateChatInputState() {
+            if (!chatInput || !chatSubmit) return;
+            const disabled = !isOnlineGame || !gameId;
+            chatInput.disabled = disabled;
+            chatSubmit.disabled = disabled;
+            if (disabled) {
+                chatInput.placeholder = '対局中のみチャットできます';
+            } else if (!isRealtimeConnected) {
+                chatInput.placeholder = '接続を待っています…';
+            } else {
+                chatInput.placeholder = 'メッセージを入力...';
+            }
+        }
+
+        async function postChatMessage(payload) {
+            await ensureAnonAuth();
+            const chatRef = database.ref(`games/${gameId}/chat`).push();
+            await chatRef.set(payload);
+        }
+
+        async function flushChatQueue() {
+            if (!isRealtimeConnected || isFlushingChatQueue || chatSendQueue.length === 0) return;
+            isFlushingChatQueue = true;
+            try {
+                while (chatSendQueue.length > 0) {
+                    const payload = chatSendQueue[0];
+                    try {
+                        await postChatMessage(payload);
+                        chatSendQueue.shift();
+                    } catch (err) {
+                        console.error('チャットキュー送信に失敗', err);
+                        showToast('メッセージの再送信に失敗しました', 'error');
+                        break;
+                    }
+                }
+            } finally {
+                isFlushingChatQueue = false;
+                updateChatInputState();
+            }
+        }
+
+        function initRealtimeConnectionMonitor() {
+            if (connectionMonitorInitialized) return;
+            connectionMonitorInitialized = true;
+            try {
+                const connectedRef = firebase.database().ref('.info/connected');
+                connectedRef.on('value', snapshot => {
+                    const connected = snapshot.val() === true;
+                    if (connected) {
+                        if (!isRealtimeConnected) {
+                            showToast('接続しました', 'success');
+                        }
+                        isRealtimeConnected = true;
+                        updateChatInputState();
+                        flushChatQueue();
+                    } else {
+                        if (isRealtimeConnected) {
+                            showToast('接続が切れました。再接続を待っています', 'warn');
+                        }
+                        isRealtimeConnected = false;
+                        updateChatInputState();
+                    }
+                });
+            } catch (err) {
+                console.error('接続監視の初期化に失敗', err);
+            }
+
+            window.addEventListener('online', () => {
+                showToast('ネットワークに接続しました', 'info');
+            });
+
+            window.addEventListener('offline', () => {
+                showToast('ネットワークから切断されました', 'warn');
+                isRealtimeConnected = false;
+                updateChatInputState();
+            });
+        }
+
+        function showToast(message, type = 'info', duration = 3500) {
+            const toastContainer = document.getElementById('toast-container');
+            if (!toastContainer) {
+                console[type === 'error' ? 'error' : 'log'](message);
+                return;
+            }
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.textContent = message;
+            toastContainer.appendChild(toast);
+            requestAnimationFrame(() => {
+                toast.classList.add('visible');
+            });
+            setTimeout(() => {
+                toast.classList.remove('visible');
+                setTimeout(() => {
+                    toast.remove();
+                }, 300);
+            }, duration);
+        }
+
         function updateParticipantListDisplay() {
             if (!participantsContainer || !participantListElement) return;
             if (!isOnlineGame || !gameId) {
@@ -2184,6 +2335,10 @@
                 result += chars.charAt(Math.floor(Math.random() * chars.length));
             }
             return result;
+        }
+
+        function generateMoveId() {
+            return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
         }
 
         // 効果音を無効化（ブラウザの互換性問題を回避）
@@ -2287,6 +2442,7 @@
             }
 
             updateBoardFlipState(true);
+            updateChatInputState();
         }
 
         async function resumeSavedGame(savedGameId, savedRole) {
@@ -2329,6 +2485,7 @@
             if (isSpectator) {
                 await ensureChatListener().catch(err => console.error('チャットリスナーの開始に失敗しました', err));
             }
+            updateChatInputState();
         }
 
         // タブ切り替え用の要素
@@ -2420,6 +2577,8 @@
             startPublicGamesRefresh();
 
             restoreChatOverlayState();
+            initRealtimeConnectionMonitor();
+            updateChatInputState();
         });
 
         // タブ切り替え
@@ -2876,7 +3035,7 @@
             playSound('move');
 
             // オンライン対戦の場合は状態を同期
-            if (isOnlineGame) {
+            if (isOnlineGame && !isSpectator) {
                 syncGameState();
             }
         });
@@ -2896,12 +3055,14 @@
 
         // チャットメッセージを送信
         async function sendChatMessage() {
-            if (!isOnlineGame || !gameId) return;
+            if (!isOnlineGame || !gameId) {
+                showToast('対局中のみチャットが利用できます', 'warn');
+                return;
+            }
 
             const message = chatInput.value.trim();
             if (message === '') return;
 
-            await ensureAnonAuth();
             const timestamp = Date.now();
             const senderUid = firebase.auth().currentUser?.uid || `anon-${timestamp}`;
             let senderRole = playerRole;
@@ -2910,22 +3071,51 @@
             }
             const nicknameToUse = userNickname || localStorage.getItem('userNickname') || '匿名';
 
-            // メッセージをFirebaseに保存
-            database.ref(`games/${gameId}/chat/${timestamp}`).set({
+            const payload = {
                 message,
-                sender: senderRole,
                 senderRole,
+                sender: senderRole,
                 senderUid,
                 nickname: nicknameToUse,
                 timestamp
-            });
+            };
 
-            // 入力欄をクリア
             chatInput.value = '';
+
+            displayChatMessage(payload.message, payload.senderRole, payload.nickname, payload.timestamp, payload.senderUid);
+
+            if (!isRealtimeConnected) {
+                chatSendQueue.push(payload);
+                showToast('接続復帰後に送信します', 'warn');
+                updateChatInputState();
+                return;
+            }
+
+            try {
+                await postChatMessage(payload);
+            } catch (err) {
+                console.error('チャット送信に失敗', err);
+                showToast('送信できませんでした。再送を試みます', 'error');
+                chatSendQueue.push(payload);
+                isRealtimeConnected = false;
+                updateChatInputState();
+            }
+
+            flushChatQueue();
+
+            if (chatInput && !chatInput.disabled) {
+                setTimeout(() => chatInput.focus({ preventScroll: true }), 0);
+            }
         }
 
         // チャットメッセージを表示
-        function displayChatMessage(message, senderRole, nickname, timestamp, senderUid) {
+        function displayChatMessage(message, senderRole, nickname, timestamp, senderUid, messageKey) {
+            if (!chatMessages) return;
+            const baseId = `${senderUid || 'anon'}|${timestamp || 'unknown'}`;
+            const candidateIds = [messageKey, baseId].filter(Boolean);
+            if (candidateIds.some(id => displayedChatMessageIds.has(id))) return;
+            candidateIds.forEach(id => displayedChatMessageIds.add(id));
+
             const messageEl = document.createElement('div');
             const currentUid = firebase.auth().currentUser?.uid;
             const isOwn = senderUid && currentUid && senderUid === currentUid;
@@ -2964,6 +3154,11 @@
             messageEl.appendChild(timeEl);
 
             chatMessages.appendChild(messageEl);
+
+            if (chatMessages.children.length > 200) {
+                const first = chatMessages.firstChild;
+                if (first) first.remove();
+            }
 
             // 最新のメッセージが見えるようにスクロール
             chatMessages.scrollTop = chatMessages.scrollHeight;
@@ -3081,6 +3276,8 @@
 
           await attachGameListeners(id);
           restoreChatOverlayState();
+          updateChatInputState();
+          updateChatInputState();
         }
 
         function initialBoardState() {
@@ -3160,6 +3357,7 @@
 
           await attachGameListeners(id);
           restoreChatOverlayState();
+          updateChatInputState();
         }
 
         async function registerSpectator(gameId) {
@@ -3195,12 +3393,14 @@
           if (gameCodeElement) gameCodeElement.textContent = gameSnap.val()?.code || id;
           if (turnIndicator) turnIndicator.style.display = 'block';
           restoreChatOverlayState();
+          updateChatInputState();
           if (rematchControls) rematchControls.style.display = 'none';
           if (rematchButton) rematchButton.disabled = true;
 
           await attachGameListeners(id);
           await ensureChatListener().catch(err => console.error('チャットリスナーの開始に失敗しました', err));
           if (watchCodeInput) watchCodeInput.value = '';
+          updateChatInputState();
         }
 
         // 入力制御・初期state一括書き込みユーティリティ
@@ -3236,7 +3436,8 @@
             gameOver: false,
             winner: null,
             inCheck: {sente:false, gote:false},
-            lastMove: null
+            lastMove: null,
+            lastMoveId: null
           };
           await gameRef.child('state').set(init);
 
@@ -3254,6 +3455,7 @@
             winner: init.winner,
             inCheck: JSON.stringify(init.inCheck),
             lastMove: JSON.stringify(init.lastMove),
+            lastMoveId: init.lastMoveId,
             lastUpdate: Date.now()
           };
           await gameRef.update(legacy);
@@ -3369,6 +3571,9 @@
           gameRef.child('state').on('value', snap => {
             const st = snap.val();
             if (!st) return;
+            if (st.lastMoveId && st.lastMoveId === gameState.lastProcessedMoveId) {
+              return;
+            }
             if ('currentTurn' in st) gameState.currentTurn = st.currentTurn;
             if ('board' in st) gameState.board = deserializeBoard(st.board);
             if ('senteHand' in st) gameState.senteHand = normalizeList(st.senteHand);
@@ -3376,6 +3581,10 @@
             if ('summonPool' in st) gameState.summonPool = normalizeList(st.summonPool);
             if ('gameOver' in st) gameState.gameOver = !!st.gameOver;
             if ('winner' in st) gameState.winner = st.winner || null;
+            if ('lastMoveId' in st) {
+              gameState.lastMoveId = st.lastMoveId;
+              gameState.lastProcessedMoveId = st.lastMoveId;
+            }
 
             // 既存の描画系を呼ぶ（関数が存在する前提）
             if (typeof renderBoard === 'function') renderBoard();
@@ -3404,6 +3613,9 @@
             const data = snap.val();
             if (!data) return;
             try {
+              if (data.lastMoveId && data.lastMoveId === gameState.lastProcessedMoveId) {
+                return;
+              }
               if ('currentTurn' in data) gameState.currentTurn = data.currentTurn || gameState.currentTurn;
               if ('board' in data) gameState.board = deserializeBoard(data.board);
               if ('senteHand' in data) gameState.senteHand = normalizeList(data.senteHand);
@@ -3411,6 +3623,10 @@
               if ('summonPool' in data) gameState.summonPool = normalizeList(data.summonPool);
               if ('gameOver' in data) gameState.gameOver = !!data.gameOver;
               if ('winner' in data) gameState.winner = data.winner || null;
+              if ('lastMoveId' in data) {
+                gameState.lastMoveId = data.lastMoveId;
+                gameState.lastProcessedMoveId = data.lastMoveId;
+              }
 
               if (typeof renderBoard === 'function') renderBoard();
               if (typeof renderHands === 'function') renderHands();
@@ -3540,6 +3756,10 @@
                 rematchControls.style.display = 'none';
                 closeChatOverlay(false);
                 if (chatMessages) chatMessages.innerHTML = '';
+                displayedChatMessageIds.clear();
+                chatSendQueue.length = 0;
+                isFlushingChatQueue = false;
+                updateChatInputState();
                 if (createGameButton) createGameButton.disabled = false;
                 if (joinGameButton) joinGameButton.disabled = false;
             }
@@ -3549,6 +3769,7 @@
             if (!isOnlineGame || !gameId || chatListenerRef) return;
             await ensureAnonAuth();
             if (chatMessages) chatMessages.innerHTML = '';
+            displayedChatMessageIds.clear();
             chatListenerRef = database.ref(`games/${gameId}/chat`);
             chatListenerRef.on('child_added', (snapshot) => {
                 const message = snapshot.val();
@@ -3559,7 +3780,8 @@
                     role,
                     message.nickname,
                     message.timestamp,
-                    message.senderUid
+                    message.senderUid,
+                    snapshot.key
                 );
             });
         }
@@ -3569,6 +3791,7 @@
                 chatListenerRef.off();
                 chatListenerRef = null;
             }
+            displayedChatMessageIds.clear();
         }
 
         async function refreshRematchListener() {
@@ -3622,7 +3845,8 @@
               gameOver: gameState.gameOver,
               winner: gameState.winner,
               inCheck: gameState.inCheck,
-              lastMove: gameState.lastMove
+              lastMove: gameState.lastMove,
+              lastMoveId: gameState.lastMoveId
             };
             await database.ref(`games/${gameId}/state`).set(st);
 
@@ -3640,6 +3864,7 @@
               winner: gameState.winner,
               inCheck: JSON.stringify(gameState.inCheck),
               lastMove: JSON.stringify(gameState.lastMove),
+              lastMoveId: gameState.lastMoveId,
               lastUpdate: Date.now()
             };
             await database.ref(`games/${gameId}`).update(legacy);
@@ -3710,6 +3935,8 @@
             gameState.inCheck = { sente: false, gote: false };
             gameState.lastMove = null;
             gameState.pendingPromotion = null;
+            gameState.lastMoveId = null;
+            gameState.lastProcessedMoveId = null;
 
             // 召喚プールを初期化
             gameState.summonPool = [];
@@ -3720,8 +3947,8 @@
             }
 
             // 王将と玉将を初期配置
-            gameState.board[8][4] = { type: '王', owner: 'sente' };
-            gameState.board[0][4] = { type: '玉', owner: 'gote' };
+            gameState.board[8][4] = createPiece('王', 'sente');
+            gameState.board[0][4] = createPiece('玉', 'gote');
 
             // UIを更新
             updateBoardFlipState();
@@ -3741,6 +3968,8 @@
             if (isOnlineGame && !isSpectator) {
                 syncGameState();
             }
+
+            updateChatInputState();
         }
 
         // ボタンの状態を更新
@@ -3924,15 +4153,22 @@
                 const winnerText = gameState.winner === 'sente' ? '先手' : '後手';
                 statusElement.textContent = `${winnerText}の勝利！`;
                 statusElement.classList.add('gameover');
+                const outcome = (isSpectator || !(playerRole === 'sente' || playerRole === 'gote'))
+                    ? (gameState.winner === 'sente' ? 'sente-win' : 'gote-win')
+                    : (gameState.winner === playerRole ? 'win' : 'lose');
+                showResultOverlay(outcome);
             } else if (gameState.inCheck.sente) {
                 statusElement.textContent = '先手の王が王手です！';
                 statusElement.classList.add('check');
+                hideResultOverlay(false);
             } else if (gameState.inCheck.gote) {
                 statusElement.textContent = '後手の玉が王手です！';
                 statusElement.classList.add('check');
+                hideResultOverlay(false);
             } else {
                 statusElement.textContent = gameState.currentTurn === 'sente' ? '先手の手番です' : '後手の手番です';
                 statusElement.classList.add(gameState.currentTurn === 'sente' ? 'sente-turn' : 'gote-turn');
+                hideResultOverlay(false);
             }
 
             // ボタンの状態を更新
@@ -4177,6 +4413,10 @@
             gameState.mustPlaceLastSummoned = false;
             gameState.lastSummonedPiece = null;
 
+            const moveId = generateMoveId();
+            gameState.lastMoveId = moveId;
+            gameState.lastProcessedMoveId = moveId;
+
             // UI更新
             updateStatus();
             renderBoard();
@@ -4185,7 +4425,7 @@
             updateCounters();
 
             // オンライン対戦の場合は状態を同期
-            if (isOnlineGame) {
+            if (isOnlineGame && !isSpectator) {
                 syncGameState();
             }
         }
@@ -4243,7 +4483,7 @@
             if (outcomeKey) {
                 showResultOverlay(outcomeKey);
             } else {
-                showResultOverlay('');
+                hideResultOverlay(false);
             }
         }
 
