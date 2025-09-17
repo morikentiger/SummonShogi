@@ -230,9 +230,11 @@
             font-size: 1.5em;
             font-weight: bold;
             user-select: none;
-            transition: all 0.3s ease;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
             position: relative;
             z-index: 2;
+            --piece-rotation: 0deg;
+            transform: rotate(var(--piece-rotation));
 
             /* 五角形の形状 */
             clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
@@ -242,7 +244,7 @@
             background-color: var(--piece-sente-bg);
             border: 2px solid var(--piece-sente-border);
             color: var(--sente-color);
-            transform: rotate(0deg);
+            --piece-rotation: 0deg;
             box-shadow: 0 4px 6px var(--piece-shadow);
         }
 
@@ -250,8 +252,16 @@
             background-color: var(--piece-gote-bg);
             border: 2px solid var(--piece-gote-border);
             color: var(--gote-color);
-            transform: rotate(180deg);
+            --piece-rotation: 180deg;
             box-shadow: 0 4px 6px var(--piece-shadow);
+        }
+
+        body.board-flipped .piece.sente {
+            --piece-rotation: 180deg;
+        }
+
+        body.board-flipped .piece.gote {
+            --piece-rotation: 0deg;
         }
 
         .piece::before {
@@ -268,11 +278,7 @@
 
         .piece.selected {
             box-shadow: 0 0 0 3px #ff0, 0 4px 6px var(--piece-shadow);
-            transform: scale(1.1);
-        }
-
-        .piece.gote.selected {
-            transform: scale(1.1) rotate(180deg);
+            transform: rotate(var(--piece-rotation)) scale(1.1);
         }
 
         .piece.animated {
@@ -280,19 +286,9 @@
         }
 
         @keyframes pop-in {
-            0% { transform: scale(0.5); opacity: 0; }
-            70% { transform: scale(1.1); }
-            100% { transform: scale(1); opacity: 1; }
-        }
-
-        .piece.gote.animated {
-            animation: pop-in-gote 0.3s ease-out forwards;
-        }
-
-        @keyframes pop-in-gote {
-            0% { transform: scale(0.5) rotate(180deg); opacity: 0; }
-            70% { transform: scale(1.1) rotate(180deg); }
-            100% { transform: scale(1) rotate(180deg); opacity: 1; }
+            0% { transform: rotate(var(--piece-rotation)) scale(0.5); opacity: 0; }
+            70% { transform: rotate(var(--piece-rotation)) scale(1.1); }
+            100% { transform: rotate(var(--piece-rotation)) scale(1); opacity: 1; }
         }
 
         .controls {
@@ -395,6 +391,8 @@
             transition: all 0.2s ease;
             position: relative;
             cursor: pointer;
+            --hand-rotation: 0deg;
+            transform: rotate(var(--hand-rotation));
 
             /* 五角形の形状 */
             clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
@@ -404,6 +402,7 @@
             background-color: var(--piece-sente-bg);
             border: 2px solid var(--piece-sente-border);
             color: var(--sente-color);
+            --hand-rotation: 0deg;
             box-shadow: 0 2px 4px var(--piece-shadow);
         }
 
@@ -411,8 +410,16 @@
             background-color: var(--piece-gote-bg);
             border: 2px solid var(--piece-gote-border);
             color: var(--gote-color);
-            transform: rotate(180deg);
+            --hand-rotation: 180deg;
             box-shadow: 0 2px 4px var(--piece-shadow);
+        }
+
+        body.board-flipped .hand-piece.sente {
+            --hand-rotation: 180deg;
+        }
+
+        body.board-flipped .hand-piece.gote {
+            --hand-rotation: 0deg;
         }
 
         .hand-piece::before {
@@ -429,7 +436,7 @@
 
         .hand-piece:hover {
             background-color: var(--highlight);
-            transform: translateY(-2px);
+            transform: rotate(var(--hand-rotation)) scale(1.05);
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
         }
 
@@ -1148,7 +1155,7 @@
 </head>
 <body>
     <div id="version-banner" style="width:100%;background:#fffbcc;color:#8B4513;padding:6px 10px;text-align:center;font-weight:bold;border:1px solid #e6d87a;border-radius:6px;margin-bottom:8px;">
-        ver3.1.0盤面反転機能（後手番ではデフォで反転）
+        ver3.1.1盤面だけでなく駒の表示向きも反転
     </div>
     <div class="header">
         <h1>オンライン対戦対応 召喚将棋</h1>
@@ -1777,6 +1784,7 @@
             if (isBoardFlipped !== targetState) {
                 isBoardFlipped = targetState;
             }
+            document.body.classList.toggle('board-flipped', isBoardFlipped);
             updateBoardToggleLabel();
             updateCoordinateLabels();
             if (forceRender && typeof renderBoard === 'function') {
@@ -3375,6 +3383,7 @@
         function renderBoard() {
             boardElement.innerHTML = '';
             updateCoordinateLabels();
+            boardElement.classList.toggle('flipped', isBoardFlipped);
 
             const rowOrder = isBoardFlipped ? [...Array(9).keys()].reverse() : [...Array(9).keys()];
             const colOrder = isBoardFlipped ? [...Array(9).keys()].reverse() : [...Array(9).keys()];
