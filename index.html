@@ -116,6 +116,28 @@
             overflow: auto;
         }
 
+        .board-toolbar {
+            display: flex;
+            justify-content: flex-end;
+            width: 100%;
+            margin-bottom: 6px;
+        }
+
+        .board-toggle-button {
+            background-color: var(--button-primary);
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            padding: 6px 12px;
+            font-size: 0.85em;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .board-toggle-button:hover {
+            background-color: var(--button-hover);
+        }
+
         .coordinates {
             display: flex;
             justify-content: space-around;
@@ -1126,7 +1148,7 @@
 </head>
 <body>
     <div id="version-banner" style="width:100%;background:#fffbcc;color:#8B4513;padding:6px 10px;text-align:center;font-weight:bold;border:1px solid #e6d87a;border-radius:6px;margin-bottom:8px;">
-        ver3.0.1観戦機能修正（対局中に部屋が見えなくなるバグ）
+        ver3.1.0盤面反転機能（後手番ではデフォで反転）
     </div>
     <div class="header">
         <h1>オンライン対戦対応 召喚将棋</h1>
@@ -1226,11 +1248,14 @@
 
             <!-- 盤面 -->
             <div class="board-area" id="board-area">
-                <div class="coordinates">
+                <div class="board-toolbar">
+                    <button id="flip-board-button" class="board-toggle-button">盤面反転</button>
+                </div>
+                <div class="coordinates" id="column-coordinates">
                     <div>9</div><div>8</div><div>7</div><div>6</div><div>5</div><div>4</div><div>3</div><div>2</div><div>1</div>
                 </div>
                 <div class="board-with-coords">
-                    <div class="row-coordinates">
+                    <div class="row-coordinates" id="row-coordinates">
                         <div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div><div>七</div><div>八</div><div>九</div>
                     </div>
                     <div class="board" id="board"></div>
@@ -1498,6 +1523,16 @@
         let rematchAccepted = false;
         let chatListenerRef = null;
         let rematchListenerRef = null;
+        let isBoardFlipped = false;
+        let boardFlipPreference = null;
+
+        (function initBoardFlipPreference(){
+            const storedFlipPref = localStorage.getItem('boardFlipPreference');
+            if (storedFlipPref === 'true' || storedFlipPref === 'false') {
+                boardFlipPreference = storedFlipPref === 'true';
+                isBoardFlipped = boardFlipPreference;
+            }
+        })();
 
         // ユーザー認証用の変数
         let userNickname = null;
@@ -1706,6 +1741,49 @@
             return [];
         }
 
+        function updateCoordinateLabels() {
+            if (columnCoordinates) {
+                const cols = isBoardFlipped ? ['1','2','3','4','5','6','7','8','9'] : ['9','8','7','6','5','4','3','2','1'];
+                columnCoordinates.innerHTML = '';
+                cols.forEach(label => {
+                    const div = document.createElement('div');
+                    div.textContent = label;
+                    columnCoordinates.appendChild(div);
+                });
+            }
+            if (rowCoordinates) {
+                const rows = isBoardFlipped ? ['九','八','七','六','五','四','三','二','一'] : ['一','二','三','四','五','六','七','八','九'];
+                rowCoordinates.innerHTML = '';
+                rows.forEach(label => {
+                    const div = document.createElement('div');
+                    div.textContent = label;
+                    rowCoordinates.appendChild(div);
+                });
+            }
+        }
+
+        function getAutoBoardFlip() {
+            return playerRole === 'gote';
+        }
+
+        function updateBoardToggleLabel() {
+            if (!flipBoardButton) return;
+            flipBoardButton.textContent = isBoardFlipped ? '先手視点に戻す' : '後手視点に切替';
+        }
+
+        function updateBoardFlipState(forceRender = false) {
+            const autoState = getAutoBoardFlip();
+            const targetState = boardFlipPreference !== null ? boardFlipPreference : autoState;
+            if (isBoardFlipped !== targetState) {
+                isBoardFlipped = targetState;
+            }
+            updateBoardToggleLabel();
+            updateCoordinateLabels();
+            if (forceRender && typeof renderBoard === 'function') {
+                renderBoard();
+            }
+        }
+
         function updateParticipantListDisplay() {
             if (!participantsContainer || !participantListElement) return;
             if (!isOnlineGame || !gameId) {
@@ -1832,6 +1910,9 @@
         const watchSubmitButton = document.getElementById('watch-submit');
         const participantsContainer = document.getElementById('participants');
         const participantListElement = document.getElementById('participant-list');
+        const flipBoardButton = document.getElementById('flip-board-button');
+        const columnCoordinates = document.getElementById('column-coordinates');
+        const rowCoordinates = document.getElementById('row-coordinates');
 
         // プレイヤーの役割を共通処理で反映
         function applyPlayerRole(role) {
@@ -1878,6 +1959,8 @@
                 stopChatListener();
                 stopRematchListener();
             }
+
+            updateBoardFlipState(true);
         }
 
         async function resumeSavedGame(savedGameId, savedRole) {
@@ -2067,6 +2150,22 @@
             }
             await watchGameRoomById(gid);
         });
+
+        if (flipBoardButton) {
+            flipBoardButton.addEventListener('click', () => {
+                const autoState = getAutoBoardFlip();
+                const newState = !isBoardFlipped;
+                if (newState === autoState) {
+                    boardFlipPreference = null;
+                    localStorage.removeItem('boardFlipPreference');
+                } else {
+                    boardFlipPreference = newState;
+                    localStorage.setItem('boardFlipPreference', String(boardFlipPreference));
+                }
+                isBoardFlipped = newState;
+                updateBoardFlipState(true);
+            });
+        }
 
         // publicGames の code → gameId を解決
         async function findGameIdByCode(code){
@@ -3225,6 +3324,7 @@
             gameState.board[0][4] = { type: '玉', owner: 'gote' };
 
             // UIを更新
+            updateBoardFlipState();
             renderBoard();
             renderHands();
             renderSummonPool();
@@ -3274,25 +3374,29 @@
         // ボードをレンダリング
         function renderBoard() {
             boardElement.innerHTML = '';
+            updateCoordinateLabels();
 
-            for (let y = 0; y < 9; y++) {
-                for (let x = 0; x < 9; x++) {
+            const rowOrder = isBoardFlipped ? [...Array(9).keys()].reverse() : [...Array(9).keys()];
+            const colOrder = isBoardFlipped ? [...Array(9).keys()].reverse() : [...Array(9).keys()];
+
+            for (const boardY of rowOrder) {
+                for (const boardX of colOrder) {
                     const cell = document.createElement('div');
                     cell.className = 'cell';
-                    cell.dataset.x = x;
-                    cell.dataset.y = y;
+                    cell.dataset.x = boardX;
+                    cell.dataset.y = boardY;
 
                     // 駒があれば表示
-                    const piece = gameState.board[y][x];
+                    const piece = gameState.board[boardY][boardX];
                     if (piece && piece.type) {
                         const pieceElement = document.createElement('div');
                         pieceElement.className = `piece ${piece.owner}`;
-                        if (gameState.selectedCell && gameState.selectedCell.x === x && gameState.selectedCell.y === y) {
+                        if (gameState.selectedCell && gameState.selectedCell.x === boardX && gameState.selectedCell.y === boardY) {
                             pieceElement.classList.add('selected');
                         }
 
                         // 最後に動かした駒にアニメーションを適用
-                        if (gameState.lastMove && gameState.lastMove.toX === x && gameState.lastMove.toY === y) {
+                        if (gameState.lastMove && gameState.lastMove.toX === boardX && gameState.lastMove.toY === boardY) {
                             pieceElement.classList.add('animated');
                         }
 
@@ -3302,8 +3406,8 @@
 
                     // セルのハイライト
                     if (gameState.possibleMoves.some(move => {
-                        if (move.x === x && move.y === y) {
-                            const targetPiece = gameState.board[y][x];
+                        if (move.x === boardX && move.y === boardY) {
+                            const targetPiece = gameState.board[boardY][boardX];
                             if (targetPiece && targetPiece.owner !== gameState.currentTurn) {
                                 cell.classList.add('highlight-attack');
                             } else {
@@ -3317,7 +3421,7 @@
                     }
 
                     // クリックイベント
-                    cell.addEventListener('click', () => handleCellClick(x, y));
+                    cell.addEventListener('click', () => handleCellClick(boardX, boardY));
 
                     boardElement.appendChild(cell);
                 }
