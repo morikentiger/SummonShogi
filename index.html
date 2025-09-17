@@ -1120,7 +1120,7 @@
 </head>
 <body>
     <div id="version-banner" style="width:100%;background:#fffbcc;color:#8B4513;padding:6px 10px;text-align:center;font-weight:bold;border:1px solid #e6d87a;border-radius:6px;margin-bottom:8px;">
-        ver2.5.0通信後盤面消えるバグ解消gpt5codexhigh
+        ver3.0.0観戦機能追加
     </div>
     <div class="header">
         <h1>オンライン対戦対応 召喚将棋</h1>
@@ -1136,6 +1136,7 @@
         <div class="tab-buttons">
             <button class="tab-button active" data-tab="create-tab">部屋を作成</button>
             <button class="tab-button" data-tab="join-tab">部屋に参加</button>
+            <button class="tab-button" data-tab="watch-tab">観戦する</button>
         </div>
 
         <div class="tab-content active" id="create-tab">
@@ -1153,6 +1154,17 @@
             </div>
         </div>
 
+        <div class="tab-content" id="watch-tab">
+            <div class="public-games-list" id="spectator-games-list">
+                <div class="no-games-message">現在観戦できる部屋はありません</div>
+            </div>
+
+            <div id="watch-form">
+                <input type="text" id="watch-code-input" placeholder="ゲームコードを入力して観戦">
+                <button id="watch-submit">観戦を開始</button>
+            </div>
+        </div>
+
         <!-- 役割選択（先手/後手） -->
         <div id="role-select" class="role-select" style="display: none; margin-top:10px;">
             <div style="display:flex; gap:8px; justify-content:center;">
@@ -1165,6 +1177,11 @@
         <div id="game-info" style="display: none;">
             <p>ゲームコード: <span id="game-code"></span></p>
             <p>あなたは<span id="player-role"></span>です</p>
+        </div>
+
+        <div id="participants" style="display:none; margin-top:10px;">
+            <h4 style="margin-bottom:6px;">参加者一覧</h4>
+            <ul id="participant-list" style="list-style:none; padding:0; margin:0; font-size:0.95em; display:flex; flex-direction:column; gap:4px;"></ul>
         </div>
 
         <div id="turn-indicator" class="turn-indicator" style="display: none;">
@@ -1469,6 +1486,7 @@
         let isOnlineGame = false;
         let gameId = null;
         let playerRole = null; // 'sente'または'gote'
+        let isSpectator = false;
         let opponentConnected = false;
         let rematchOffered = false;
         let rematchAccepted = false;
@@ -1480,6 +1498,8 @@
         let isLoggedIn = false;
         let publicGamesData = []; // 変数名を変更
         let publicGamesRefresh = null;
+        let currentPlayers = {};
+        let currentSpectators = {};
 
         // ゲームの状態を管理
         const gameState = {
@@ -1680,6 +1700,63 @@
             return [];
         }
 
+        function updateParticipantListDisplay() {
+            if (!participantsContainer || !participantListElement) return;
+            if (!isOnlineGame || !gameId) {
+                participantsContainer.style.display = 'none';
+                participantListElement.innerHTML = '';
+                return;
+            }
+
+            participantsContainer.style.display = 'block';
+            participantListElement.innerHTML = '';
+
+            const uid = firebase.auth().currentUser?.uid;
+            const playerEntries = [];
+            for (const [pid, info] of Object.entries(currentPlayers || {})) {
+                if (!info) continue;
+                const role = info.role;
+                let label = 'プレイヤー';
+                let order = 2;
+                if (role === 'sente') { label = '先手'; order = 0; }
+                else if (role === 'gote') { label = '後手'; order = 1; }
+                playerEntries.push({ order, label, pid, info });
+            }
+
+            playerEntries.sort((a, b) => a.order - b.order);
+            playerEntries.forEach(entry => {
+                const li = document.createElement('li');
+                let text = `${entry.label}: ${entry.info.nickname || '匿名'}`;
+                if (entry.pid === uid) text += ' (あなた)';
+                if (entry.info.online === false) text += ' [離席]';
+                li.textContent = text;
+                participantListElement.appendChild(li);
+            });
+
+            const spectatorEntries = [];
+            for (const [sid, info] of Object.entries(currentSpectators || {})) {
+                if (!info) continue;
+                spectatorEntries.push({ sid, info });
+            }
+
+            spectatorEntries.sort((a, b) => (a.info.joinedAt || 0) - (b.info.joinedAt || 0));
+            if (spectatorEntries.length > 0) {
+                const header = document.createElement('li');
+                header.textContent = '--- 観戦者 ---';
+                header.style.fontWeight = 'bold';
+                participantListElement.appendChild(header);
+
+                spectatorEntries.forEach(entry => {
+                    const li = document.createElement('li');
+                    let text = `${entry.info.nickname || '匿名'}`;
+                    if (entry.sid === uid) text += ' (あなた)';
+                    if (entry.info.online === false) text += ' [離席]';
+                    li.textContent = text;
+                    participantListElement.appendChild(li);
+                });
+            }
+        }
+
         function showNicknameModal() {
             // 統一: ログインモーダル表示は showLoginModal に集約
             if (typeof showLoginModal === 'function') {
@@ -1744,22 +1821,35 @@
         const chooseGoteBtn = document.getElementById('choose-gote');
         const roleSelectMsg = document.getElementById('role-select-msg');
         const publicGamesListElement = document.getElementById('public-games-list'); // 変数名を変更
+        const spectatorGamesListElement = document.getElementById('spectator-games-list');
+        const watchCodeInput = document.getElementById('watch-code-input');
+        const watchSubmitButton = document.getElementById('watch-submit');
+        const participantsContainer = document.getElementById('participants');
+        const participantListElement = document.getElementById('participant-list');
 
         // プレイヤーの役割を共通処理で反映
         function applyPlayerRole(role) {
-            const normalized = role === 'sente' ? 'sente' : (role === 'gote' ? 'gote' : null);
+            const normalized = role === 'sente' ? 'sente' : (role === 'gote' ? 'gote' : (role === 'spectator' ? 'spectator' : null));
             playerRole = normalized;
 
             if (playerRoleElement) {
                 if (normalized) {
-                    playerRoleElement.textContent = normalized === 'sente' ? '先手（あなた）' : '後手（あなた）';
+                    if (normalized === 'sente') {
+                        playerRoleElement.textContent = '先手（あなた）';
+                    } else if (normalized === 'gote') {
+                        playerRoleElement.textContent = '後手（あなた）';
+                    } else {
+                        playerRoleElement.textContent = '観戦者（あなた）';
+                    }
                 } else {
                     playerRoleElement.textContent = '未確定';
                 }
             }
 
-            if (normalized) {
+            if (normalized && normalized !== 'spectator') {
                 localStorage.setItem('playerRole', normalized);
+            } else if (normalized === 'spectator') {
+                localStorage.setItem('playerRole', 'spectator');
             } else {
                 localStorage.removeItem('playerRole');
             }
@@ -1770,7 +1860,14 @@
 
             if (normalized && isOnlineGame && gameId) {
                 ensureChatListener().catch(err => console.error('チャットリスナーの開始に失敗しました', err));
-                refreshRematchListener().catch(err => console.error('リマッチリスナーの開始に失敗しました', err));
+                if (normalized === 'sente' || normalized === 'gote') {
+                    refreshRematchListener().catch(err => console.error('リマッチリスナーの開始に失敗しました', err));
+                    if (rematchButton) rematchButton.disabled = false;
+                } else {
+                    stopRematchListener();
+                    if (rematchControls) rematchControls.style.display = 'none';
+                    if (rematchButton) rematchButton.disabled = true;
+                }
             } else if (!normalized) {
                 stopChatListener();
                 stopRematchListener();
@@ -1788,6 +1885,7 @@
             }
 
             isOnlineGame = true;
+            isSpectator = savedRole === 'spectator';
             gameId = savedGameId;
             localStorage.setItem('currentGameId', savedGameId);
 
@@ -1808,7 +1906,14 @@
             if (gameCodeElement) gameCodeElement.textContent = snapshot.val()?.code || savedGameId;
             if (turnIndicator) turnIndicator.style.display = 'block';
 
+            if (isSpectator) {
+                await registerSpectator(savedGameId);
+            }
+
             await attachGameListeners(savedGameId);
+            if (isSpectator) {
+                await ensureChatListener().catch(err => console.error('チャットリスナーの開始に失敗しました', err));
+            }
         }
 
         // タブ切り替え用の要素
@@ -1936,6 +2041,25 @@
                 return;
             }
             await joinGameRoomById(gid);
+        });
+
+        if (watchSubmitButton) watchSubmitButton.addEventListener('click', async () => {
+            if (!isLoggedIn) {
+                showLoginModal();
+                return;
+            }
+
+            const code = watchCodeInput.value.trim().toUpperCase();
+            if (code.length !== 6) {
+                alert('有効なゲームコード（6文字）を入力してください');
+                return;
+            }
+            const gid = await findGameIdByCode(code);
+            if (!gid) {
+                alert('そのコードの部屋は見つかりません');
+                return;
+            }
+            await watchGameRoomById(gid);
         });
 
         // publicGames の code → gameId を解決
@@ -2075,10 +2199,12 @@
         function updatePublicGamesList(snapshot) {
             // リストをクリア
             publicGamesListElement.innerHTML = '';
+            if (spectatorGamesListElement) spectatorGamesListElement.innerHTML = '';
             publicGamesData = [];
 
             if (!snapshot || !snapshot.exists()) {
                 publicGamesListElement.innerHTML = '<div class="no-games-message">現在公開された部屋はありません</div>';
+                if (spectatorGamesListElement) spectatorGamesListElement.innerHTML = '<div class="no-games-message">現在観戦できる部屋はありません</div>';
                 return;
             }
 
@@ -2100,6 +2226,7 @@
 
             if (gameItems.length === 0) {
                 publicGamesListElement.innerHTML = '<div class="no-games-message">現在公開された部屋はありません</div>';
+                if (spectatorGamesListElement) spectatorGamesListElement.innerHTML = '<div class="no-games-message">現在観戦できる部屋はありません</div>';
                 return;
             }
 
@@ -2134,6 +2261,20 @@
                 gameItem.appendChild(joinButton);
 
                 publicGamesListElement.appendChild(gameItem);
+
+                if (spectatorGamesListElement) {
+                    const watchItem = gameItem.cloneNode(true);
+                    const watchButton = document.createElement('button');
+                    watchButton.className = 'join-public-button';
+                    watchButton.textContent = '観戦する';
+                    watchButton.addEventListener('click', async () => {
+                        if (!isLoggedIn) { showLoginModal(); return; }
+                        await watchGameRoomById(game.id);
+                    });
+                    // 差し替え
+                    watchItem.lastElementChild.replaceWith(watchButton);
+                    spectatorGamesListElement.appendChild(watchItem);
+                }
             });
 
             // 公開ゲームリストを保存
@@ -2262,32 +2403,49 @@
 
             await ensureAnonAuth();
             const timestamp = Date.now();
-            const sender = playerRole;
+            const senderUid = firebase.auth().currentUser?.uid || `anon-${timestamp}`;
+            let senderRole = playerRole;
+            if (!senderRole) {
+                senderRole = isSpectator ? 'spectator' : 'visitor';
+            }
+            const nicknameToUse = userNickname || localStorage.getItem('userNickname') || '匿名';
 
             // メッセージをFirebaseに保存
             database.ref(`games/${gameId}/chat/${timestamp}`).set({
                 message,
-                sender,
-                nickname: userNickname,
+                sender: senderRole,
+                senderRole,
+                senderUid,
+                nickname: nicknameToUse,
                 timestamp
             });
 
             // 入力欄をクリア
             chatInput.value = '';
-
-            // UIに自分のメッセージを表示
-            displayChatMessage(message, sender, userNickname, timestamp);
         }
 
         // チャットメッセージを表示
-        function displayChatMessage(message, sender, nickname, timestamp) {
+        function displayChatMessage(message, senderRole, nickname, timestamp, senderUid) {
             const messageEl = document.createElement('div');
-            messageEl.className = `chat-message ${sender === playerRole ? 'sent' : 'received'}`;
+            const currentUid = firebase.auth().currentUser?.uid;
+            const isOwn = senderUid && currentUid && senderUid === currentUid;
+            messageEl.className = `chat-message ${isOwn ? 'sent' : 'received'}`;
 
             const senderInfo = document.createElement('div');
             senderInfo.style.fontWeight = 'bold';
             senderInfo.style.marginBottom = '3px';
-            senderInfo.textContent = sender === playerRole ? 'あなた' : nickname;
+            const roleLabelMap = {
+                sente: '先手',
+                gote: '後手',
+                spectator: '観戦者',
+                visitor: '参加者'
+            };
+            const roleLabel = senderRole && roleLabelMap[senderRole] ? `（${roleLabelMap[senderRole]}）` : '';
+            if (isOwn) {
+                senderInfo.textContent = roleLabel ? `あなた${roleLabel}` : 'あなた';
+            } else {
+                senderInfo.textContent = `${nickname || '匿名'}${roleLabel}`;
+            }
 
             const textEl = document.createElement('div');
             textEl.textContent = message;
@@ -2296,7 +2454,7 @@
             timeEl.className = 'chat-message-time';
 
             // タイムスタンプを整形
-            const date = new Date(timestamp);
+            const date = timestamp ? new Date(timestamp) : new Date();
             const hours = date.getHours().toString().padStart(2, '0');
             const minutes = date.getMinutes().toString().padStart(2, '0');
             timeEl.textContent = `${hours}:${minutes}`;
@@ -2313,7 +2471,7 @@
 
         // リマッチを申し込む
         async function offerRematch() {
-            if (!isOnlineGame || !gameId) return;
+            if (!isOnlineGame || !gameId || !(playerRole === 'sente' || playerRole === 'gote')) return;
 
             rematchButton.disabled = true;
             rematchStatus.textContent = 'リマッチを申し込み中...';
@@ -2412,6 +2570,7 @@
           gameRef.child(`players/${uid}/online`).onDisconnect().set(false);
 
           isOnlineGame = true;
+          isSpectator = false;
           gameId = id;
           localStorage.setItem('currentGameId', id);
           applyPlayerRole('sente');
@@ -2490,6 +2649,7 @@
 
           // ローカル状態/表示
           isOnlineGame = true;
+          isSpectator = false;
           gameId = id;
           localStorage.setItem('currentGameId', id);
           applyPlayerRole(decidedRole);
@@ -2498,6 +2658,47 @@
           if (turnIndicator) turnIndicator.style.display = 'block';
 
           await attachGameListeners(id);
+        }
+
+        async function registerSpectator(gameId) {
+          await ensureAnonAuth();
+          const uid = firebase.auth().currentUser.uid;
+          const nickname = localStorage.getItem('userNickname') || '匿名';
+          const spectatorRef = database.ref(`games/${gameId}/spectators/${uid}`);
+          await spectatorRef.set({ nickname, online: true, joinedAt: Date.now() });
+          spectatorRef.onDisconnect().remove();
+        }
+
+        async function watchGameRoomById(id) {
+          await ensureAnonAuth();
+          if (isOnlineGame && gameId && gameId !== id) {
+            await leaveGameRoom();
+          }
+          const uid = firebase.auth().currentUser.uid;
+          const nickname = localStorage.getItem('userNickname') || '匿名';
+          const gameRef = database.ref(`games/${id}`);
+          const gameSnap = await gameRef.once('value');
+          if (!gameSnap.exists()) { alert('部屋が見つかりません'); return; }
+
+          await registerSpectator(id);
+
+          isOnlineGame = true;
+          isSpectator = true;
+          gameId = id;
+          localStorage.setItem('currentGameId', id);
+          localStorage.setItem('playerRole', 'spectator');
+          applyPlayerRole('spectator');
+
+          if (gameInfoElement) gameInfoElement.style.display = 'block';
+          if (gameCodeElement) gameCodeElement.textContent = gameSnap.val()?.code || id;
+          if (turnIndicator) turnIndicator.style.display = 'block';
+          if (chatContainer) chatContainer.style.display = 'block';
+          if (rematchControls) rematchControls.style.display = 'none';
+          if (rematchButton) rematchButton.disabled = true;
+
+          await attachGameListeners(id);
+          await ensureChatListener().catch(err => console.error('チャットリスナーの開始に失敗しました', err));
+          if (watchCodeInput) watchCodeInput.value = '';
         }
 
         // 入力制御・初期state一括書き込みユーティリティ
@@ -2566,9 +2767,11 @@
             const players = snap.val() || {};
             const count = Object.keys(players).length;
 
+            currentPlayers = players;
+
             // 自分のroleをDBから確定してUIに反映
             const me = firebase.auth().currentUser?.uid;
-            if (me && players[me]?.role) {
+            if (!isSpectator && me && players[me]?.role) {
               applyPlayerRole(players[me].role);
             }
 
@@ -2577,9 +2780,17 @@
             const roles = rolesSnap.val();
             if (roles && me) {
               const roleFromMap = roles.sente === me ? 'sente' : (roles.gote === me ? 'gote' : null);
-              if (roleFromMap) {
+              if (roleFromMap && !isSpectator) {
                 applyPlayerRole(roleFromMap);
+              } else if (!roleFromMap && !isSpectator && playerRole) {
+                applyPlayerRole(null);
               }
+            }
+
+            if (isSpectator) {
+              applyPlayerRole('spectator');
+              if (roleSelect) roleSelect.style.display = 'none';
+              if (roleSelectMsg) roleSelectMsg.textContent = '観戦モードです';
             }
 
             opponentConnected = count === 2;
@@ -2606,7 +2817,7 @@
             // 役割選択UIの表示制御
             const uid = firebase.auth().currentUser?.uid;
             const myRoleKnown = !!(players[uid]?.role || (roles && (roles.sente === uid || roles.gote === uid)));
-            if (!gameState.gameOver && isOnlineGame) {
+            if (!gameState.gameOver && isOnlineGame && !isSpectator) {
               // 両役埋まっていない or 自分の役が未確定 → 表示
               const bothAssigned = !!(roles && roles.sente && roles.gote);
               roleSelect.style.display = (!bothAssigned || !myRoleKnown) ? 'block' : 'none';
@@ -2614,6 +2825,8 @@
             } else {
               roleSelect.style.display = 'none';
             }
+
+            updateParticipantListDisplay();
           });
 
           // roles ノードの変化を監視してロールを常に同期
@@ -2621,6 +2834,10 @@
             const roles = snap.val() || {};
             const me = firebase.auth().currentUser?.uid;
             if (!me) return;
+            if (isSpectator) {
+              applyPlayerRole('spectator');
+              return;
+            }
             if (roles.sente === me) {
               applyPlayerRole('sente');
             } else if (roles.gote === me) {
@@ -2628,6 +2845,11 @@
             } else if (playerRole) {
               applyPlayerRole(null);
             }
+          });
+
+          gameRef.child('spectators').on('value', snap => {
+            currentSpectators = snap.val() || {};
+            updateParticipantListDisplay();
           });
 
           // state 監視: UI反映・入力制御
@@ -2705,7 +2927,7 @@
 
         // 役割選択（先手/後手）の確定処理（transactionで原子的に確保）
         async function chooseRole(role){
-          if (!isOnlineGame || !gameId) return;
+          if (!isOnlineGame || !gameId || isSpectator) return;
           await ensureAnonAuth();
           const uid = firebase.auth().currentUser.uid;
           const ref = database.ref(`games/${gameId}`);
@@ -2759,20 +2981,25 @@
                 await ensureAnonAuth();
                 const uid = firebase.auth().currentUser?.uid;
                 const exitingRole = playerRole;
+                const wasSpectator = isSpectator;
 
                 // 監視を解除
                 database.ref(`games/${gameId}`).off();
 
                 if (uid) {
-                    // players から自身を削除
-                    await database.ref(`games/${gameId}/players/${uid}`).remove();
-                    // roles マップを更新
-                    await database.ref(`games/${gameId}/roles`).transaction(roles => {
-                        if (!roles) return roles;
-                        if (roles.sente === uid) roles.sente = null;
-                        if (roles.gote === uid) roles.gote = null;
-                        return roles;
-                    });
+                    if (wasSpectator) {
+                        await database.ref(`games/${gameId}/spectators/${uid}`).remove();
+                    } else {
+                        // players から自身を削除
+                        await database.ref(`games/${gameId}/players/${uid}`).remove();
+                        // roles マップを更新
+                        await database.ref(`games/${gameId}/roles`).transaction(roles => {
+                            if (!roles) return roles;
+                            if (roles.sente === uid) roles.sente = null;
+                            if (roles.gote === uid) roles.gote = null;
+                            return roles;
+                        });
+                    }
                 }
 
                 if (exitingRole === 'sente') {
@@ -2786,14 +3013,19 @@
                 isOnlineGame = false;
                 gameId = null;
                 opponentConnected = false;
+                isSpectator = false;
+                currentPlayers = {};
+                currentSpectators = {};
                 applyPlayerRole(null);
                 localStorage.removeItem('currentGameId');
+                updateParticipantListDisplay();
 
                 // UI更新
                 gameInfoElement.style.display = 'none';
                 turnIndicator.style.display = 'none';
                 rematchControls.style.display = 'none';
                 chatContainer.style.display = 'none';
+                if (chatMessages) chatMessages.innerHTML = '';
                 if (createGameButton) createGameButton.disabled = false;
                 if (joinGameButton) joinGameButton.disabled = false;
             }
@@ -2802,14 +3034,19 @@
         async function ensureChatListener() {
             if (!isOnlineGame || !gameId || chatListenerRef) return;
             await ensureAnonAuth();
+            if (chatMessages) chatMessages.innerHTML = '';
             chatListenerRef = database.ref(`games/${gameId}/chat`);
             chatListenerRef.on('child_added', (snapshot) => {
                 const message = snapshot.val();
                 if (!message) return;
-
-                if (message.sender !== playerRole) {
-                    displayChatMessage(message.message, message.sender, message.nickname, message.timestamp);
-                }
+                const role = message.senderRole || message.sender || 'visitor';
+                displayChatMessage(
+                    message.message,
+                    role,
+                    message.nickname,
+                    message.timestamp,
+                    message.senderUid
+                );
             });
         }
 
@@ -2826,7 +3063,7 @@
                 rematchListenerRef = null;
             }
 
-            if (!isOnlineGame || !gameId || !playerRole) return;
+            if (!isOnlineGame || !gameId || !(playerRole === 'sente' || playerRole === 'gote')) return;
 
             const opponentRole = playerRole === 'sente' ? 'gote' : 'sente';
             await ensureAnonAuth();
@@ -2856,7 +3093,7 @@
 
         // ゲーム状態をFirebaseに同期（state 下へフラット保存）
         async function syncGameState() {
-            if (!isOnlineGame || !gameId) return;
+            if (!isOnlineGame || !gameId || isSpectator) return;
             await ensureAnonAuth();
             const boardData = serializeBoard(gameState.board);
             const st = {
@@ -2924,6 +3161,13 @@
                 return;
             }
 
+            if (isSpectator) {
+                const currentText = gameState.currentTurn === 'sente' ? '先手の手番です' : '後手の手番です';
+                turnIndicator.textContent = `観戦中: ${currentText}`;
+                turnIndicator.className = 'turn-indicator';
+                return;
+            }
+
             if (isMyTurn()) {
                 turnIndicator.textContent = 'あなたの手番です';
                 turnIndicator.className = 'turn-indicator your-turn';
@@ -2978,7 +3222,7 @@
             updateSummonInfo('新しい駒を召喚するには「召喚する」ボタンをクリックしてください。');
 
             // オンライン対戦の場合は状態を同期
-            if (isOnlineGame) {
+            if (isOnlineGame && !isSpectator) {
                 syncGameState();
             }
         }
