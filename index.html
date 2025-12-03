@@ -3838,14 +3838,35 @@
             gameRef.child('state').on('value', snap => {
                 const st = snap.val();
                 if (!st) return;
+
+                // デバッグログ
+                console.log('Firebase state update:', {
+                    lastMoveId: st.lastMoveId,
+                    lastProcessedMoveId: gameState.lastProcessedMoveId,
+                    willSkip: st.lastMoveId && st.lastMoveId === gameState.lastProcessedMoveId,
+                    senteHandLength: st.senteHand ? st.senteHand.length : 0,
+                    goteHandLength: st.goteHand ? st.goteHand.length : 0,
+                    summonPoolLength: st.summonPool ? st.summonPool.length : 0
+                });
+
                 if (st.lastMoveId && st.lastMoveId === gameState.lastProcessedMoveId) {
+                    console.log('Skipping duplicate state update');
                     return;
                 }
                 if ('currentTurn' in st) gameState.currentTurn = st.currentTurn;
                 if ('board' in st) gameState.board = deserializeBoard(st.board);
-                if ('senteHand' in st) gameState.senteHand = normalizeList(st.senteHand);
-                if ('goteHand' in st) gameState.goteHand = normalizeList(st.goteHand);
-                if ('summonPool' in st) gameState.summonPool = normalizeList(st.summonPool);
+                if ('senteHand' in st) {
+                    console.log('Updating senteHand from', gameState.senteHand.length, 'to', normalizeList(st.senteHand).length);
+                    gameState.senteHand = normalizeList(st.senteHand);
+                }
+                if ('goteHand' in st) {
+                    console.log('Updating goteHand from', gameState.goteHand.length, 'to', normalizeList(st.goteHand).length);
+                    gameState.goteHand = normalizeList(st.goteHand);
+                }
+                if ('summonPool' in st) {
+                    console.log('Updating summonPool from', gameState.summonPool.length, 'to', normalizeList(st.summonPool).length);
+                    gameState.summonPool = normalizeList(st.summonPool);
+                }
                 if ('hasSummoned' in st) gameState.hasSummoned = !!st.hasSummoned;
                 if ('mustPlaceLastSummoned' in st) gameState.mustPlaceLastSummoned = !!st.mustPlaceLastSummoned;
                 if ('lastSummonedPiece' in st) gameState.lastSummonedPiece = st.lastSummonedPiece || null;
