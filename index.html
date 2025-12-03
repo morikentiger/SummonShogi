@@ -1193,9 +1193,8 @@
         .timer-container {
             display: flex;
             justify-content: space-between;
-            gap: 10px;
-            margin-bottom: 15px;
-            padding: 10px;
+            gap: 8px;
+            padding: 8px;
             background-color: white;
             border: 2px solid var(--board-border);
             border-radius: 8px;
@@ -1205,10 +1204,11 @@
         .timer {
             flex: 1;
             text-align: center;
-            padding: 10px;
+            padding: 6px 10px;
             border-radius: 6px;
             background-color: #f0f0f0;
             transition: all 0.3s ease;
+            min-width: 80px;
         }
 
         .timer.active {
@@ -1234,14 +1234,14 @@
         }
 
         .timer-label {
-            font-size: 0.9em;
+            font-size: 0.75em;
             font-weight: bold;
             color: #666;
-            margin-bottom: 5px;
+            margin-bottom: 3px;
         }
 
         .timer-value {
-            font-size: 1.8em;
+            font-size: 1.3em;
             font-weight: bold;
             font-family: 'Courier New', monospace;
             color: #333;
@@ -1724,7 +1724,23 @@
                     </div>
                     <div class="board" id="board"></div>
                 </div>
-                <button id="summon-button" disabled>召喚</button>
+
+                <!-- 召喚ボタンとタイマー -->
+                <div style="display: flex; gap: 15px; align-items: center; justify-content: center; margin-top: 15px;">
+                    <button id="summon-button" disabled>召喚</button>
+
+                    <!-- 制限時間表示 -->
+                    <div class="timer-container" id="timer-container" style="display: none; margin: 0;">
+                        <div class="timer" id="sente-timer">
+                            <div class="timer-label">先手</div>
+                            <div class="timer-value" id="sente-time">--:--</div>
+                        </div>
+                        <div class="timer" id="gote-timer">
+                            <div class="timer-label">後手</div>
+                            <div class="timer-value" id="gote-time">--:--</div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- 先手の持ち駒 -->
@@ -1742,18 +1758,6 @@
                 </div>
                 <div style="margin-top: 10px; font-size: 0.85em; color: #8B4513; text-align: center;">
                     ※召喚したら、その駒を必ず盤面に打つ必要があります
-                </div>
-            </div>
-
-            <!-- 制限時間表示 -->
-            <div class="timer-container" id="timer-container" style="display: none;">
-                <div class="timer" id="sente-timer">
-                    <div class="timer-label">先手</div>
-                    <div class="timer-value" id="sente-time">--:--</div>
-                </div>
-                <div class="timer" id="gote-timer">
-                    <div class="timer-label">後手</div>
-                    <div class="timer-value" id="gote-time">--:--</div>
                 </div>
             </div>
 
