@@ -2311,6 +2311,16 @@
                     if (connected) {
                         if (!isRealtimeConnected) {
                             showToast('接続しました', 'success');
+
+                            // 接続が回復したら、プレイヤーのonlineフラグを更新
+                            const uid = firebase.auth().currentUser?.uid;
+                            if (uid && isOnlineGame && gameId) {
+                                if (!isSpectator) {
+                                    database.ref(`games/${gameId}/players/${uid}/online`).set(true);
+                                } else {
+                                    database.ref(`games/${gameId}/spectators/${uid}/online`).set(true);
+                                }
+                            }
                         }
                         isRealtimeConnected = true;
                         updateChatInputState();
@@ -4023,6 +4033,15 @@
                 turnIndicator.className = 'turn-indicator';
                 return;
             }
+
+            // デバッグ情報
+            console.log('Turn Indicator Debug:', {
+                isOnlineGame,
+                playerRole,
+                currentTurn: gameState.currentTurn,
+                isMyTurn: isMyTurn(),
+                gameOver: gameState.gameOver
+            });
 
             if (isMyTurn()) {
                 turnIndicator.textContent = 'あなたの手番です';
