@@ -3128,6 +3128,11 @@
                 return;
             }
 
+            // 移動IDを生成して二重処理を防ぐ
+            const moveId = generateMoveId();
+            gameState.lastMoveId = moveId;
+            gameState.lastProcessedMoveId = moveId;
+
             // 手番を切り替え
             switchTurn();
             playSound('move');
@@ -3677,6 +3682,10 @@
                 if ('senteHand' in st) gameState.senteHand = normalizeList(st.senteHand);
                 if ('goteHand' in st) gameState.goteHand = normalizeList(st.goteHand);
                 if ('summonPool' in st) gameState.summonPool = normalizeList(st.summonPool);
+                if ('hasSummoned' in st) gameState.hasSummoned = !!st.hasSummoned;
+                if ('mustPlaceLastSummoned' in st) gameState.mustPlaceLastSummoned = !!st.mustPlaceLastSummoned;
+                if ('lastSummonedPiece' in st) gameState.lastSummonedPiece = st.lastSummonedPiece || null;
+                if ('inCheck' in st) gameState.inCheck = st.inCheck || { sente: false, gote: false };
                 if ('gameOver' in st) gameState.gameOver = !!st.gameOver;
                 if ('winner' in st) gameState.winner = st.winner || null;
                 if ('lastMoveId' in st) {
@@ -3719,6 +3728,16 @@
                     if ('senteHand' in data) gameState.senteHand = normalizeList(data.senteHand);
                     if ('goteHand' in data) gameState.goteHand = normalizeList(data.goteHand);
                     if ('summonPool' in data) gameState.summonPool = normalizeList(data.summonPool);
+                    if ('hasSummoned' in data) gameState.hasSummoned = !!data.hasSummoned;
+                    if ('mustPlaceLastSummoned' in data) gameState.mustPlaceLastSummoned = !!data.mustPlaceLastSummoned;
+                    if ('lastSummonedPiece' in data) gameState.lastSummonedPiece = data.lastSummonedPiece || null;
+                    if ('inCheck' in data) {
+                        try {
+                            gameState.inCheck = typeof data.inCheck === 'string' ? JSON.parse(data.inCheck) : (data.inCheck || { sente: false, gote: false });
+                        } catch (e) {
+                            gameState.inCheck = { sente: false, gote: false };
+                        }
+                    }
                     if ('gameOver' in data) gameState.gameOver = !!data.gameOver;
                     if ('winner' in data) gameState.winner = data.winner || null;
                     if ('lastMoveId' in data) {
@@ -4963,6 +4982,44 @@
                             positions.push({ x, y });
                         }
                     } else {
+                        // 打ち歩詰めのチェック（歩を打って相手を詰ませることは反則）
+                        if (pieceType === '歩') {
+                            const tmpBoard = JSON.parse(JSON.stringify(gameState.board));
+                            tmpBoard[y][x] = { type: pieceType, owner: currentPlayer };
+
+                            const opponentPlayer = currentPlayer === 'sente' ? 'gote' : 'sente';
+                            const opponentKingPos = findKingInBoard(opponentPlayer, tmpBoard);
+
+                            if (opponentKingPos) {
+                                // 歩を打った後、相手の王が王手されているかチェック
+                                const isOpponentInCheck = isPositionUnderAttackWithBoard(
+                                    opponentKingPos.x,
+                                    opponentKingPos.y,
+                                    currentPlayer,
+                                    tmpBoard
+                                );
+
+                                if (isOpponentInCheck) {
+                                    // 相手が詰んでいるかチェック
+                                    const savedBoard = gameState.board;
+                                    const savedTurn = gameState.currentTurn;
+
+                                    gameState.board = tmpBoard;
+                                    gameState.currentTurn = opponentPlayer;
+
+                                    const isOpponentCheckmated = isCheckmate();
+
+                                    gameState.board = savedBoard;
+                                    gameState.currentTurn = savedTurn;
+
+                                    // 打ち歩詰めの場合はこの位置を除外
+                                    if (isOpponentCheckmated) {
+                                        continue;
+                                    }
+                                }
+                            }
+                        }
+
                         positions.push({ x, y });
                     }
                 }
