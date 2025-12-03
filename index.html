@@ -732,6 +732,35 @@
             transform: translateY(-2px) rotate(180deg);
         }
 
+        /* 召喚した駒の強調表示 */
+        .hand-piece.summoned {
+            animation: summon-glow 1.5s ease-in-out infinite;
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.8), 0 4px 6px rgba(0, 0, 0, 0.15);
+            border: 3px solid #FFD700;
+            background: linear-gradient(135deg, #FFF8DC 0%, #F0E68C 100%);
+        }
+
+        .hand-piece.summoned.sente {
+            color: #8B4513;
+        }
+
+        .hand-piece.summoned.gote {
+            color: #2d6a4f;
+        }
+
+        @keyframes summon-glow {
+
+            0%,
+            100% {
+                box-shadow: 0 0 15px rgba(255, 215, 0, 0.8), 0 4px 6px rgba(0, 0, 0, 0.15);
+            }
+
+            50% {
+                box-shadow: 0 0 25px rgba(255, 215, 0, 1), 0 6px 8px rgba(0, 0, 0, 0.2);
+            }
+        }
+
+
         .summon-container {
             background-color: white;
             border: 2px solid var(--board-border);
@@ -4502,6 +4531,14 @@
                 const count = senteHandCount[piece];
                 const pieceElement = document.createElement('div');
                 pieceElement.className = 'hand-piece sente';
+
+                // 召喚した駒の場合はsummonedクラスを追加
+                if (gameState.mustPlaceLastSummoned &&
+                    gameState.lastSummonedPiece === piece &&
+                    gameState.currentTurn === 'sente') {
+                    pieceElement.classList.add('summoned');
+                }
+
                 pieceElement.textContent = count > 1 ? `${piece}${count}` : piece;
                 pieceElement.dataset.type = piece;
                 pieceElement.addEventListener('click', () => {
@@ -4530,6 +4567,14 @@
                 const count = goteHandCount[piece];
                 const pieceElement = document.createElement('div');
                 pieceElement.className = 'hand-piece gote';
+
+                // 召喚した駒の場合はsummonedクラスを追加
+                if (gameState.mustPlaceLastSummoned &&
+                    gameState.lastSummonedPiece === piece &&
+                    gameState.currentTurn === 'gote') {
+                    pieceElement.classList.add('summoned');
+                }
+
                 pieceElement.textContent = count > 1 ? `${piece}${count}` : piece;
                 pieceElement.dataset.type = piece;
                 pieceElement.addEventListener('click', () => {
