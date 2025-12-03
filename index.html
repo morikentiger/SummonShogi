@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -253,9 +254,20 @@
         }
 
         @keyframes result-pop-in {
-            0% { opacity: 0; transform: scale(0.85); }
-            60% { opacity: 1; transform: scale(1.05); }
-            100% { opacity: 1; transform: scale(1); }
+            0% {
+                opacity: 0;
+                transform: scale(0.85);
+            }
+
+            60% {
+                opacity: 1;
+                transform: scale(1.05);
+            }
+
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
         }
 
         #toast-container {
@@ -278,7 +290,7 @@
             background: rgba(0, 0, 0, 0.75);
             color: #fff;
             font-weight: bold;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
             opacity: 0;
             transform: translateY(10px);
             transition: opacity 0.3s ease, transform 0.3s ease;
@@ -290,10 +302,22 @@
             transform: translateY(0);
         }
 
-        .toast-info { background: rgba(33, 150, 243, 0.9); }
-        .toast-success { background: rgba(46, 204, 113, 0.9); }
-        .toast-warn { background: rgba(241, 196, 15, 0.92); color: #4a3600; }
-        .toast-error { background: rgba(231, 76, 60, 0.92); }
+        .toast-info {
+            background: rgba(33, 150, 243, 0.9);
+        }
+
+        .toast-success {
+            background: rgba(46, 204, 113, 0.9);
+        }
+
+        .toast-warn {
+            background: rgba(241, 196, 15, 0.92);
+            color: #4a3600;
+        }
+
+        .toast-error {
+            background: rgba(231, 76, 60, 0.92);
+        }
 
         .chat-close-button {
             position: absolute;
@@ -521,9 +545,19 @@
         }
 
         @keyframes pop-in {
-            0% { transform: rotate(var(--piece-rotation)) scale(0.5); opacity: 0; }
-            70% { transform: rotate(var(--piece-rotation)) scale(1.1); }
-            100% { transform: rotate(var(--piece-rotation)) scale(1); opacity: 1; }
+            0% {
+                transform: rotate(var(--piece-rotation)) scale(0.5);
+                opacity: 0;
+            }
+
+            70% {
+                transform: rotate(var(--piece-rotation)) scale(1.1);
+            }
+
+            100% {
+                transform: rotate(var(--piece-rotation)) scale(1);
+                opacity: 1;
+            }
         }
 
         .controls {
@@ -575,15 +609,34 @@
         }
 
         @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-            100% { transform: scale(1); }
+            0% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.05);
+            }
+
+            100% {
+                transform: scale(1);
+            }
         }
 
         @keyframes victory-pulse {
-            0% { transform: scale(1); background-color: #ffcc00; }
-            50% { transform: scale(1.05); background-color: #ffd700; }
-            100% { transform: scale(1); background-color: #ffcc00; }
+            0% {
+                transform: scale(1);
+                background-color: #ffcc00;
+            }
+
+            50% {
+                transform: scale(1.05);
+                background-color: #ffd700;
+            }
+
+            100% {
+                transform: scale(1);
+                background-color: #ffcc00;
+            }
         }
 
         .hand-container {
@@ -788,7 +841,8 @@
             max-height: 800px;
         }
 
-        .rules-content ul, .rules-content ol {
+        .rules-content ul,
+        .rules-content ol {
             padding-left: 20px;
             margin: 10px 0;
         }
@@ -1309,7 +1363,8 @@
                 max-height: 450px;
             }
 
-            .coordinates, .row-coordinates {
+            .coordinates,
+            .row-coordinates {
                 font-size: 0.8em;
             }
 
@@ -1373,14 +1428,35 @@
                 align-items: center;
                 width: 100%;
             }
+
             /* .controls 内の子要素の並びを固定化 */
-            .controls { width: 100%; }
-            #gote-hand-container { order: 0; }
-            #board-area { order: 1; margin-bottom: 15px; width: 100%; }
-            #sente-hand-container { order: 2; margin-top: 10px; }
+            .controls {
+                width: 100%;
+            }
+
+            #gote-hand-container {
+                order: 0;
+            }
+
+            #board-area {
+                order: 1;
+                margin-bottom: 15px;
+                width: 100%;
+            }
+
+            #sente-hand-container {
+                order: 2;
+                margin-top: 10px;
+            }
+
             /* スマホではボタン等を先に、その後に召喚プール */
-            .status-panel { order: 3; }
-            .summon-container { order: 4; }
+            .status-panel {
+                order: 3;
+            }
+
+            .summon-container {
+                order: 4;
+            }
         }
     </style>
 
@@ -1388,8 +1464,10 @@
     <!-- <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script> -->
 </head>
+
 <body>
-    <div id="version-banner" style="width:100%;background:#fffbcc;color:#8B4513;padding:6px 10px;text-align:center;font-weight:bold;border:1px solid #e6d87a;border-radius:6px;margin-bottom:8px;">
+    <div id="version-banner"
+        style="width:100%;background:#fffbcc;color:#8B4513;padding:6px 10px;text-align:center;font-weight:bold;border:1px solid #e6d87a;border-radius:6px;margin-bottom:8px;">
         ver3.2.1召喚ボタン・チャットオーバーレイ・決着時表示大など
     </div>
     <div class="header">
@@ -1472,8 +1550,10 @@
         <!-- 役割選択（先手/後手） -->
         <div id="role-select" class="role-select" style="display: none; margin-top:10px;">
             <div style="display:flex; gap:8px; justify-content:center;">
-                <button id="choose-sente" style="background:#8B4513; color:#fff; padding:8px 12px; border:none; border-radius:4px; font-weight:bold;">先手になる</button>
-                <button id="choose-gote" style="background:#2d6a4f; color:#fff; padding:8px 12px; border:none; border-radius:4px; font-weight:bold;">後手になる</button>
+                <button id="choose-sente"
+                    style="background:#8B4513; color:#fff; padding:8px 12px; border:none; border-radius:4px; font-weight:bold;">先手になる</button>
+                <button id="choose-gote"
+                    style="background:#2d6a4f; color:#fff; padding:8px 12px; border:none; border-radius:4px; font-weight:bold;">後手になる</button>
             </div>
             <div id="role-select-msg" style="margin-top:6px; text-align:center; color:#8B4513; font-size:0.9em;"></div>
         </div>
@@ -1485,7 +1565,9 @@
 
         <div id="participants" style="display:none; margin-top:10px;">
             <h4 style="margin-bottom:6px;">参加者一覧</h4>
-            <ul id="participant-list" style="list-style:none; padding:0; margin:0; font-size:0.95em; display:flex; flex-direction:column; gap:4px;"></ul>
+            <ul id="participant-list"
+                style="list-style:none; padding:0; margin:0; font-size:0.95em; display:flex; flex-direction:column; gap:4px;">
+            </ul>
         </div>
 
         <div id="turn-indicator" class="turn-indicator" style="display: none;">
@@ -1513,11 +1595,27 @@
                     <button id="chat-toggle-button" class="board-toggle-button">チャット</button>
                 </div>
                 <div class="coordinates" id="column-coordinates">
-                    <div>9</div><div>8</div><div>7</div><div>6</div><div>5</div><div>4</div><div>3</div><div>2</div><div>1</div>
+                    <div>9</div>
+                    <div>8</div>
+                    <div>7</div>
+                    <div>6</div>
+                    <div>5</div>
+                    <div>4</div>
+                    <div>3</div>
+                    <div>2</div>
+                    <div>1</div>
                 </div>
                 <div class="board-with-coords">
                     <div class="row-coordinates" id="row-coordinates">
-                        <div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div><div>七</div><div>八</div><div>九</div>
+                        <div>一</div>
+                        <div>二</div>
+                        <div>三</div>
+                        <div>四</div>
+                        <div>五</div>
+                        <div>六</div>
+                        <div>七</div>
+                        <div>八</div>
+                        <div>九</div>
                     </div>
                     <div class="board" id="board"></div>
                 </div>
@@ -1715,22 +1813,22 @@
 
         // Firebaseの初期化コード内または直後に追加
         firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL)
-        .then(() => {
-            console.log('認証の永続化を設定しました');
-        })
-        .catch((error) => {
-            console.error('認証の永続化の設定に失敗しました:', error);
-        });
+            .then(() => {
+                console.log('認証の永続化を設定しました');
+            })
+            .catch((error) => {
+                console.error('認証の永続化の設定に失敗しました:', error);
+            });
 
         // 認証状態の監視（デバッグ用）
-        firebase.auth().onAuthStateChanged(function(user) {
+        firebase.auth().onAuthStateChanged(function (user) {
             console.log("認証状態:", user ? "認証済み" : "未認証");
         });
 
         // ページ読み込み時に実行
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             // Firebase認証状態の監視
-            firebase.auth().onAuthStateChanged(async function(user) {
+            firebase.auth().onAuthStateChanged(async function (user) {
                 if (user) {
                     console.log('ログイン済み:', user.uid);
 
@@ -1753,24 +1851,24 @@
 
         // DOMContentLoaded内に追加
         firebase.auth().onAuthStateChanged((user) => {
-        console.log('認証状態が変更されました:', user ? 'ログイン中' : '未ログイン');
+            console.log('認証状態が変更されました:', user ? 'ログイン中' : '未ログイン');
 
-        if (user) {
-            // ユーザーがログインしている場合
-            const userNickname = localStorage.getItem('userNickname');
-            console.log('ログイン中のユーザー:', user.uid, 'ニックネーム:', userNickname);
+            if (user) {
+                // ユーザーがログインしている場合
+                const userNickname = localStorage.getItem('userNickname');
+                console.log('ログイン中のユーザー:', user.uid, 'ニックネーム:', userNickname);
 
-            // ニックネームが取得できない場合は再入力を促す
-            if (!userNickname || userNickname.length < 2) {
-            showNicknameModal();
+                // ニックネームが取得できない場合は再入力を促す
+                if (!userNickname || userNickname.length < 2) {
+                    showNicknameModal();
+                }
+            } else {
+                // 未ログイン状態の場合、匿名ログインを自動実行
+                firebase.auth().signInAnonymously()
+                    .catch((error) => {
+                        console.error('匿名ログインに失敗しました:', error);
+                    });
             }
-        } else {
-            // 未ログイン状態の場合、匿名ログインを自動実行
-            firebase.auth().signInAnonymously()
-            .catch((error) => {
-                console.error('匿名ログインに失敗しました:', error);
-            });
-        }
         });
 
 
@@ -1787,7 +1885,7 @@
         let isBoardFlipped = false;
         let boardFlipPreference = null;
 
-        (function initBoardFlipPreference(){
+        (function initBoardFlipPreference() {
             const storedFlipPref = localStorage.getItem('boardFlipPreference');
             if (storedFlipPref === 'true' || storedFlipPref === 'false') {
                 boardFlipPreference = storedFlipPref === 'true';
@@ -2052,7 +2150,7 @@
 
         function updateCoordinateLabels() {
             if (columnCoordinates) {
-                const cols = isBoardFlipped ? ['1','2','3','4','5','6','7','8','9'] : ['9','8','7','6','5','4','3','2','1'];
+                const cols = isBoardFlipped ? ['1', '2', '3', '4', '5', '6', '7', '8', '9'] : ['9', '8', '7', '6', '5', '4', '3', '2', '1'];
                 columnCoordinates.innerHTML = '';
                 cols.forEach(label => {
                     const div = document.createElement('div');
@@ -2061,7 +2159,7 @@
                 });
             }
             if (rowCoordinates) {
-                const rows = isBoardFlipped ? ['九','八','七','六','五','四','三','二','一'] : ['一','二','三','四','五','六','七','八','九'];
+                const rows = isBoardFlipped ? ['九', '八', '七', '六', '五', '四', '三', '二', '一'] : ['一', '二', '三', '四', '五', '六', '七', '八', '九'];
                 rowCoordinates.innerHTML = '';
                 rows.forEach(label => {
                     const div = document.createElement('div');
@@ -2525,36 +2623,36 @@
 
         // イベントハンドラを関数として定義
         function handleRoomCreation() {
-        const user = firebase.auth().currentUser;
-        const userNickname = localStorage.getItem('userNickname');
+            const user = firebase.auth().currentUser;
+            const userNickname = localStorage.getItem('userNickname');
 
-        if (!user) {
-            console.error('ユーザーがログインしていません');
-            firebase.auth().signInAnonymously()
-            .then(() => {
-                if (userNickname && userNickname.length >= 2) {
-                setTimeout(createRoom, 500);
-                } else {
-                alert('ログインが必要です。ニックネームを入力してください。');
+            if (!user) {
+                console.error('ユーザーがログインしていません');
+                firebase.auth().signInAnonymously()
+                    .then(() => {
+                        if (userNickname && userNickname.length >= 2) {
+                            setTimeout(createRoom, 500);
+                        } else {
+                            alert('ログインが必要です。ニックネームを入力してください。');
+                            showNicknameModal();
+                        }
+                    })
+                    .catch(error => {
+                        console.error('再ログインに失敗:', error);
+                        alert('ログインに失敗しました。再読み込みしてお試しください。');
+                    });
+                return;
+            }
+
+            if (!userNickname || userNickname.length < 2) {
+                alert('ニックネームは2文字以上入力してください');
                 showNicknameModal();
-                }
-            })
-            .catch(error => {
-                console.error('再ログインに失敗:', error);
-                alert('ログインに失敗しました。再読み込みしてお試しください。');
-            });
-            return;
-        }
-
-        if (!userNickname || userNickname.length < 2) {
-            alert('ニックネームは2文字以上入力してください');
-            showNicknameModal();
-            return;
-        }
+                return;
+            }
 
 
 
-        createRoom();
+            createRoom();
         }
 
 
@@ -2723,7 +2821,7 @@
         }
 
         // publicGames の code → gameId を解決
-        async function findGameIdByCode(code){
+        async function findGameIdByCode(code) {
             await ensureAnonAuth();
             const snap = await firebase.database()
                 .ref('publicGames')
@@ -2735,7 +2833,7 @@
         }
 
         // ニックネーム予約用ヘルパー（推奨: /nicknames インデックス）
-        function toKey(name){ return name.trim().toLowerCase(); }
+        function toKey(name) { return name.trim().toLowerCase(); }
         async function claimNickname(nickname) {
             await ensureAnonAuth();
             const uid = firebase.auth().currentUser.uid;
@@ -2745,7 +2843,7 @@
             // 既に自分のUIDが入っている場合もOKとする
             return result.snapshot && result.snapshot.val() === uid;
         }
-        async function setNickname(nickname){
+        async function setNickname(nickname) {
             const ok = await claimNickname(nickname);
             if (!ok) throw new Error('そのニックネームは使用されています');
             await registerUser(nickname);
@@ -2821,7 +2919,7 @@
         // ユーザーIDを生成
         function generateUserId() {
             return Math.random().toString(36).substring(2, 15) +
-                   Math.random().toString(36).substring(2, 15);
+                Math.random().toString(36).substring(2, 15);
         }
 
         // ログインモーダルを表示
@@ -3242,42 +3340,42 @@
 
         // 作成: ゲームを waiting で作って待機し、開始を監視
         async function createGameRoom() {
-          await ensureAnonAuth();
-          const uid = firebase.auth().currentUser.uid;
-          const code = generateRandomId();
-          const id = code; // 便宜上 code をそのまま gameId に
-          const now = Date.now();
+            await ensureAnonAuth();
+            const uid = firebase.auth().currentUser.uid;
+            const code = generateRandomId();
+            const id = code; // 便宜上 code をそのまま gameId に
+            const now = Date.now();
 
-          const gameRef = database.ref(`games/${id}`);
-          await gameRef.set({
-            code, createdAt: now,
-            status: { phase: 'waiting', turn: 'sente' },
-            players: {
-              [uid]: { role:'sente', nickname: localStorage.getItem('userNickname'), online:true, joinedAt: now }
-            },
-            roles: { sente: uid, gote: null }
-          });
+            const gameRef = database.ref(`games/${id}`);
+            await gameRef.set({
+                code, createdAt: now,
+                status: { phase: 'waiting', turn: 'sente' },
+                players: {
+                    [uid]: { role: 'sente', nickname: localStorage.getItem('userNickname'), online: true, joinedAt: now }
+                },
+                roles: { sente: uid, gote: null }
+            });
 
-          // 公開リスト（任意）
-          await database.ref(`publicGames/${id}`).set({ code, host: localStorage.getItem('userNickname'), createdAt: now, status: 'waiting' });
+            // 公開リスト（任意）
+            await database.ref(`publicGames/${id}`).set({ code, host: localStorage.getItem('userNickname'), createdAt: now, status: 'waiting' });
 
-          // 接続切れ処理
-          gameRef.child(`players/${uid}/online`).onDisconnect().set(false);
+            // 接続切れ処理
+            gameRef.child(`players/${uid}/online`).onDisconnect().set(false);
 
-          isOnlineGame = true;
-          isSpectator = false;
-          gameId = id;
-          localStorage.setItem('currentGameId', id);
-          applyPlayerRole('sente');
-          gameInfoElement.style.display = 'block';
-          gameCodeElement.textContent = code;
-          turnIndicator.style.display = 'block';
-          turnIndicator.textContent = '対戦相手の接続を待っています…';
+            isOnlineGame = true;
+            isSpectator = false;
+            gameId = id;
+            localStorage.setItem('currentGameId', id);
+            applyPlayerRole('sente');
+            gameInfoElement.style.display = 'block';
+            gameCodeElement.textContent = code;
+            turnIndicator.style.display = 'block';
+            turnIndicator.textContent = '対戦相手の接続を待っています…';
 
-          await attachGameListeners(id);
-          restoreChatOverlayState();
-          updateChatInputState();
-          updateChatInputState();
+            await attachGameListeners(id);
+            restoreChatOverlayState();
+            updateChatInputState();
+            updateChatInputState();
         }
 
         function initialBoardState() {
@@ -3302,398 +3400,398 @@
 
         // 参加: roles を原子的に確保し、players に反映（同時参加でも一意）
         async function joinGameRoomById(id) {
-          await ensureAnonAuth();
-          const uid = firebase.auth().currentUser.uid;
-          const nickname = localStorage.getItem('userNickname') || '匿名';
-          const gameRef = database.ref(`games/${id}`);
-          const gameSnap = await gameRef.once('value');
-          if (!gameSnap.exists()) { alert('部屋が見つかりません'); return; }
+            await ensureAnonAuth();
+            const uid = firebase.auth().currentUser.uid;
+            const nickname = localStorage.getItem('userNickname') || '匿名';
+            const gameRef = database.ref(`games/${id}`);
+            const gameSnap = await gameRef.once('value');
+            if (!gameSnap.exists()) { alert('部屋が見つかりません'); return; }
 
-          const now = Date.now();
-          let decidedRole = null;
-          // 旧部屋互換: roles がない場合は players から推定
-          const existingPlayers = (gameSnap.child('players').val() || {});
-          const inferred = { sente: null, gote: null };
-          for (const [pid, p] of Object.entries(existingPlayers)) {
-            if (p?.role === 'sente') inferred.sente = pid;
-            if (p?.role === 'gote')  inferred.gote  = pid;
-          }
+            const now = Date.now();
+            let decidedRole = null;
+            // 旧部屋互換: roles がない場合は players から推定
+            const existingPlayers = (gameSnap.child('players').val() || {});
+            const inferred = { sente: null, gote: null };
+            for (const [pid, p] of Object.entries(existingPlayers)) {
+                if (p?.role === 'sente') inferred.sente = pid;
+                if (p?.role === 'gote') inferred.gote = pid;
+            }
 
-          const roleTxn = await gameRef.child('roles').transaction(cur => {
-            const roles = cur || { sente: null, gote: null };
-            // 空いているところに推定を反映（既存プレイヤーの役割を尊重）
-            if (!roles.sente && inferred.sente) roles.sente = inferred.sente;
-            if (!roles.gote  && inferred.gote)  roles.gote  = inferred.gote;
-            // すでに自分が入っている場合はそのまま
-            if (roles.sente === uid || roles.gote === uid) return roles;
-            // 典型: 先手が埋まっているので後手を確保
-            if (roles.sente && !roles.gote) { decidedRole = 'gote'; roles.gote = uid; return roles; }
-            // 先手が空いている場合は先手へ
-            if (!roles.sente) { decidedRole = 'sente'; roles.sente = uid; return roles; }
-            // それ以外は満員
-            return; // abort
-          });
+            const roleTxn = await gameRef.child('roles').transaction(cur => {
+                const roles = cur || { sente: null, gote: null };
+                // 空いているところに推定を反映（既存プレイヤーの役割を尊重）
+                if (!roles.sente && inferred.sente) roles.sente = inferred.sente;
+                if (!roles.gote && inferred.gote) roles.gote = inferred.gote;
+                // すでに自分が入っている場合はそのまま
+                if (roles.sente === uid || roles.gote === uid) return roles;
+                // 典型: 先手が埋まっているので後手を確保
+                if (roles.sente && !roles.gote) { decidedRole = 'gote'; roles.gote = uid; return roles; }
+                // 先手が空いている場合は先手へ
+                if (!roles.sente) { decidedRole = 'sente'; roles.sente = uid; return roles; }
+                // それ以外は満員
+                return; // abort
+            });
 
-          if (!roleTxn.committed) { alert('この部屋は満員です'); return; }
-          // roles に基づき players を更新
-          if (!decidedRole) {
-            const rolesNow = roleTxn.snapshot.val() || {};
-            decidedRole = rolesNow.sente === uid ? 'sente' : 'gote';
-          }
-          await gameRef.child(`players/${uid}`).set({ role: decidedRole, nickname, online: true, joinedAt: now });
+            if (!roleTxn.committed) { alert('この部屋は満員です'); return; }
+            // roles に基づき players を更新
+            if (!decidedRole) {
+                const rolesNow = roleTxn.snapshot.val() || {};
+                decidedRole = rolesNow.sente === uid ? 'sente' : 'gote';
+            }
+            await gameRef.child(`players/${uid}`).set({ role: decidedRole, nickname, online: true, joinedAt: now });
 
-          // 接続切れ時のフラグ
-          gameRef.child(`players/${uid}/online`).onDisconnect().set(false);
+            // 接続切れ時のフラグ
+            gameRef.child(`players/${uid}/online`).onDisconnect().set(false);
 
-          // ローカル状態/表示
-          isOnlineGame = true;
-          isSpectator = false;
-          gameId = id;
-          localStorage.setItem('currentGameId', id);
-          applyPlayerRole(decidedRole);
-          if (gameInfoElement) gameInfoElement.style.display = 'block';
-          if (gameCodeElement) gameCodeElement.textContent = gameSnap.val().code || id;
-          if (turnIndicator) turnIndicator.style.display = 'block';
+            // ローカル状態/表示
+            isOnlineGame = true;
+            isSpectator = false;
+            gameId = id;
+            localStorage.setItem('currentGameId', id);
+            applyPlayerRole(decidedRole);
+            if (gameInfoElement) gameInfoElement.style.display = 'block';
+            if (gameCodeElement) gameCodeElement.textContent = gameSnap.val().code || id;
+            if (turnIndicator) turnIndicator.style.display = 'block';
 
-          await attachGameListeners(id);
-          restoreChatOverlayState();
-          updateChatInputState();
+            await attachGameListeners(id);
+            restoreChatOverlayState();
+            updateChatInputState();
         }
 
         async function registerSpectator(gameId) {
-          await ensureAnonAuth();
-          const uid = firebase.auth().currentUser.uid;
-          const nickname = localStorage.getItem('userNickname') || '匿名';
-          const spectatorRef = database.ref(`games/${gameId}/spectators/${uid}`);
-          await spectatorRef.set({ nickname, online: true, joinedAt: Date.now() });
-          spectatorRef.onDisconnect().remove();
+            await ensureAnonAuth();
+            const uid = firebase.auth().currentUser.uid;
+            const nickname = localStorage.getItem('userNickname') || '匿名';
+            const spectatorRef = database.ref(`games/${gameId}/spectators/${uid}`);
+            await spectatorRef.set({ nickname, online: true, joinedAt: Date.now() });
+            spectatorRef.onDisconnect().remove();
         }
 
         async function watchGameRoomById(id) {
-          await ensureAnonAuth();
-          if (isOnlineGame && gameId && gameId !== id) {
-            await leaveGameRoom();
-          }
-          const uid = firebase.auth().currentUser.uid;
-          const nickname = localStorage.getItem('userNickname') || '匿名';
-          const gameRef = database.ref(`games/${id}`);
-          const gameSnap = await gameRef.once('value');
-          if (!gameSnap.exists()) { alert('部屋が見つかりません'); return; }
+            await ensureAnonAuth();
+            if (isOnlineGame && gameId && gameId !== id) {
+                await leaveGameRoom();
+            }
+            const uid = firebase.auth().currentUser.uid;
+            const nickname = localStorage.getItem('userNickname') || '匿名';
+            const gameRef = database.ref(`games/${id}`);
+            const gameSnap = await gameRef.once('value');
+            if (!gameSnap.exists()) { alert('部屋が見つかりません'); return; }
 
-          await registerSpectator(id);
+            await registerSpectator(id);
 
-          isOnlineGame = true;
-          isSpectator = true;
-          gameId = id;
-          localStorage.setItem('currentGameId', id);
-          localStorage.setItem('playerRole', 'spectator');
-          applyPlayerRole('spectator');
+            isOnlineGame = true;
+            isSpectator = true;
+            gameId = id;
+            localStorage.setItem('currentGameId', id);
+            localStorage.setItem('playerRole', 'spectator');
+            applyPlayerRole('spectator');
 
-          if (gameInfoElement) gameInfoElement.style.display = 'block';
-          if (gameCodeElement) gameCodeElement.textContent = gameSnap.val()?.code || id;
-          if (turnIndicator) turnIndicator.style.display = 'block';
-          restoreChatOverlayState();
-          updateChatInputState();
-          if (rematchControls) rematchControls.style.display = 'none';
-          if (rematchButton) rematchButton.disabled = true;
+            if (gameInfoElement) gameInfoElement.style.display = 'block';
+            if (gameCodeElement) gameCodeElement.textContent = gameSnap.val()?.code || id;
+            if (turnIndicator) turnIndicator.style.display = 'block';
+            restoreChatOverlayState();
+            updateChatInputState();
+            if (rematchControls) rematchControls.style.display = 'none';
+            if (rematchButton) rematchButton.disabled = true;
 
-          await attachGameListeners(id);
-          await ensureChatListener().catch(err => console.error('チャットリスナーの開始に失敗しました', err));
-          if (watchCodeInput) watchCodeInput.value = '';
-          updateChatInputState();
+            await attachGameListeners(id);
+            await ensureChatListener().catch(err => console.error('チャットリスナーの開始に失敗しました', err));
+            if (watchCodeInput) watchCodeInput.value = '';
+            updateChatInputState();
         }
 
         // 入力制御・初期state一括書き込みユーティリティ
-        function setInputEnabled(enabled){
-          if (typeof summonButton !== 'undefined' && summonButton) summonButton.disabled = !enabled;
-          if (typeof passButton !== 'undefined' && passButton) passButton.disabled = !enabled;
+        function setInputEnabled(enabled) {
+            if (typeof summonButton !== 'undefined' && summonButton) summonButton.disabled = !enabled;
+            if (typeof passButton !== 'undefined' && passButton) passButton.disabled = !enabled;
         }
 
-        async function pushInitialStateOnce(gameRef){
-          await gameRef.child('meta/startedAt').transaction(v => v || Date.now());
+        async function pushInitialStateOnce(gameRef) {
+            await gameRef.child('meta/startedAt').transaction(v => v || Date.now());
 
-          // 召喚プールを生成（38枚）
-          const pool = [];
-          for (const [piece, info] of Object.entries(pieceTypes)) {
-            for (let i = 0; i < (info.count || 0); i++) pool.push(piece);
-          }
-          // フィッシャー–イェーツでシャッフル
-          for (let i = pool.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [pool[i], pool[j]] = [pool[j], pool[i]];
-          }
+            // 召喚プールを生成（38枚）
+            const pool = [];
+            for (const [piece, info] of Object.entries(pieceTypes)) {
+                for (let i = 0; i < (info.count || 0); i++) pool.push(piece);
+            }
+            // フィッシャー–イェーツでシャッフル
+            for (let i = pool.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [pool[i], pool[j]] = [pool[j], pool[i]];
+            }
 
-          const boardData = serializeBoard(gameState.board);
+            const boardData = serializeBoard(gameState.board);
 
-          const init = {
-            currentTurn: 'sente',
-            board: boardData,
-            senteHand: [], goteHand: [],
-            summonPool: pool,
-            hasSummoned: false,
-            mustPlaceLastSummoned: false,
-            lastSummonedPiece: null,
-            gameOver: false,
-            winner: null,
-            inCheck: {sente:false, gote:false},
-            lastMove: null,
-            lastMoveId: null
-          };
-          await gameRef.child('state').set(init);
+            const init = {
+                currentTurn: 'sente',
+                board: boardData,
+                senteHand: [], goteHand: [],
+                summonPool: pool,
+                hasSummoned: false,
+                mustPlaceLastSummoned: false,
+                lastSummonedPiece: null,
+                gameOver: false,
+                winner: null,
+                inCheck: { sente: false, gote: false },
+                lastMove: null,
+                lastMoveId: null
+            };
+            await gameRef.child('state').set(init);
 
-          // 互換: 旧ロジック向けにトップレベルにも保存
-          const legacy = {
-            currentTurn: init.currentTurn,
-            board: JSON.stringify(boardData),
-            senteHand: JSON.stringify(init.senteHand),
-            goteHand: JSON.stringify(init.goteHand),
-            summonPool: JSON.stringify(init.summonPool),
-            hasSummoned: init.hasSummoned,
-            mustPlaceLastSummoned: init.mustPlaceLastSummoned,
-            lastSummonedPiece: init.lastSummonedPiece,
-            gameOver: init.gameOver,
-            winner: init.winner,
-            inCheck: JSON.stringify(init.inCheck),
-            lastMove: JSON.stringify(init.lastMove),
-            lastMoveId: init.lastMoveId,
-            lastUpdate: Date.now()
-          };
-          await gameRef.update(legacy);
+            // 互換: 旧ロジック向けにトップレベルにも保存
+            const legacy = {
+                currentTurn: init.currentTurn,
+                board: JSON.stringify(boardData),
+                senteHand: JSON.stringify(init.senteHand),
+                goteHand: JSON.stringify(init.goteHand),
+                summonPool: JSON.stringify(init.summonPool),
+                hasSummoned: init.hasSummoned,
+                mustPlaceLastSummoned: init.mustPlaceLastSummoned,
+                lastSummonedPiece: init.lastSummonedPiece,
+                gameOver: init.gameOver,
+                winner: init.winner,
+                inCheck: JSON.stringify(init.inCheck),
+                lastMove: JSON.stringify(init.lastMove),
+                lastMoveId: init.lastMoveId,
+                lastUpdate: Date.now()
+            };
+            await gameRef.update(legacy);
         }
 
         // 2人になったら開始、state購読でUI同期
-        async function attachGameListeners(gameId){
-          await ensureAnonAuth();
-          const gameRef = firebase.database().ref(`games/${gameId}`);
+        async function attachGameListeners(gameId) {
+            await ensureAnonAuth();
+            const gameRef = firebase.database().ref(`games/${gameId}`);
 
-          // players 監視: 2人揃ったら開始処理 + 自分のrole反映
-          gameRef.child('players').on('value', async snap => {
-            const players = snap.val() || {};
-            const count = Object.keys(players).length;
+            // players 監視: 2人揃ったら開始処理 + 自分のrole反映
+            gameRef.child('players').on('value', async snap => {
+                const players = snap.val() || {};
+                const count = Object.keys(players).length;
 
-            currentPlayers = players;
+                currentPlayers = players;
 
-            // 自分のroleをDBから確定してUIに反映
-            const me = firebase.auth().currentUser?.uid;
-            if (!isSpectator && me && players[me]?.role) {
-              applyPlayerRole(players[me].role);
-            }
-
-            // 役割マップがある場合はそちらを優先して反映
-            const rolesSnap = await gameRef.child('roles').once('value');
-            const roles = rolesSnap.val();
-            if (roles && me) {
-              const roleFromMap = roles.sente === me ? 'sente' : (roles.gote === me ? 'gote' : null);
-              if (roleFromMap && !isSpectator) {
-                applyPlayerRole(roleFromMap);
-              } else if (!roleFromMap && !isSpectator && playerRole) {
-                applyPlayerRole(null);
-              }
-            }
-
-            if (isSpectator) {
-              applyPlayerRole('spectator');
-              if (roleSelect) roleSelect.style.display = 'none';
-              if (roleSelectMsg) roleSelectMsg.textContent = '観戦モードです';
-            }
-
-            opponentConnected = count === 2;
-
-            // 公開リストのステータス更新（先手のみ）
-            const hostUid = roles && roles.sente;
-            if (hostUid && hostUid === firebase.auth().currentUser?.uid) {
-              try {
-                await firebase.database().ref(`publicGames/${gameId}`).update({
-                  status: count >= 2 ? 'playing' : 'waiting'
-                });
-              } catch (e) {
-                console.warn('publicGames status 更新失敗', e);
-              }
-            }
-
-            if (count === 2) {
-              // 状態: 対局中へ
-              try { await gameRef.child('status/phase').set('playing'); } catch(e) { console.warn('status/phase 書き込み失敗', e); }
-              // 先手が初期state投入（1回だけ）
-              if (playerRole === 'sente') {
-                try {
-                  const started = (await gameRef.child('meta/startedAt').once('value')).val();
-                  if (!started) await pushInitialStateOnce(gameRef);
-                } catch (e) {
-                  console.error('初期状態の書き込みに失敗しました。ルールで games/<id>/state と meta の書き込みを許可してください。', e);
+                // 自分のroleをDBから確定してUIに反映
+                const me = firebase.auth().currentUser?.uid;
+                if (!isSpectator && me && players[me]?.role) {
+                    applyPlayerRole(players[me].role);
                 }
-              }
-              if (gameInfoElement) gameInfoElement.style.display = 'block';
-              if (turnIndicator) turnIndicator.style.display = 'block';
-              restoreChatOverlayState();
-              if (typeof updateTurnIndicator === 'function') updateTurnIndicator();
-            }
 
-            // 役割選択UIの表示制御
-            const uid = firebase.auth().currentUser?.uid;
-            const myRoleKnown = !!(players[uid]?.role || (roles && (roles.sente === uid || roles.gote === uid)));
-            if (!gameState.gameOver && isOnlineGame && !isSpectator) {
-              // 両役埋まっていない or 自分の役が未確定 → 表示
-              const bothAssigned = !!(roles && roles.sente && roles.gote);
-              roleSelect.style.display = (!bothAssigned || !myRoleKnown) ? 'block' : 'none';
-              roleSelectMsg.textContent = (!bothAssigned) ? '役割を選んでください（先着優先）' : '';
-            } else {
-              roleSelect.style.display = 'none';
-            }
+                // 役割マップがある場合はそちらを優先して反映
+                const rolesSnap = await gameRef.child('roles').once('value');
+                const roles = rolesSnap.val();
+                if (roles && me) {
+                    const roleFromMap = roles.sente === me ? 'sente' : (roles.gote === me ? 'gote' : null);
+                    if (roleFromMap && !isSpectator) {
+                        applyPlayerRole(roleFromMap);
+                    } else if (!roleFromMap && !isSpectator && playerRole) {
+                        applyPlayerRole(null);
+                    }
+                }
 
-            updateParticipantListDisplay();
-          });
+                if (isSpectator) {
+                    applyPlayerRole('spectator');
+                    if (roleSelect) roleSelect.style.display = 'none';
+                    if (roleSelectMsg) roleSelectMsg.textContent = '観戦モードです';
+                }
 
-          // roles ノードの変化を監視してロールを常に同期
-          gameRef.child('roles').on('value', snap => {
-            const roles = snap.val() || {};
-            const me = firebase.auth().currentUser?.uid;
-            if (!me) return;
-            if (isSpectator) {
-              applyPlayerRole('spectator');
-              return;
-            }
-            if (roles.sente === me) {
-              applyPlayerRole('sente');
-            } else if (roles.gote === me) {
-              applyPlayerRole('gote');
-            } else if (playerRole) {
-              applyPlayerRole(null);
-            }
-          });
+                opponentConnected = count === 2;
 
-          gameRef.child('spectators').on('value', snap => {
-            currentSpectators = snap.val() || {};
-            updateParticipantListDisplay();
-          });
+                // 公開リストのステータス更新（先手のみ）
+                const hostUid = roles && roles.sente;
+                if (hostUid && hostUid === firebase.auth().currentUser?.uid) {
+                    try {
+                        await firebase.database().ref(`publicGames/${gameId}`).update({
+                            status: count >= 2 ? 'playing' : 'waiting'
+                        });
+                    } catch (e) {
+                        console.warn('publicGames status 更新失敗', e);
+                    }
+                }
 
-          // state 監視: UI反映・入力制御
-          gameRef.child('state').on('value', snap => {
-            const st = snap.val();
-            if (!st) return;
-            if (st.lastMoveId && st.lastMoveId === gameState.lastProcessedMoveId) {
-              return;
-            }
-            if ('currentTurn' in st) gameState.currentTurn = st.currentTurn;
-            if ('board' in st) gameState.board = deserializeBoard(st.board);
-            if ('senteHand' in st) gameState.senteHand = normalizeList(st.senteHand);
-            if ('goteHand' in st) gameState.goteHand = normalizeList(st.goteHand);
-            if ('summonPool' in st) gameState.summonPool = normalizeList(st.summonPool);
-            if ('gameOver' in st) gameState.gameOver = !!st.gameOver;
-            if ('winner' in st) gameState.winner = st.winner || null;
-            if ('lastMoveId' in st) {
-              gameState.lastMoveId = st.lastMoveId;
-              gameState.lastProcessedMoveId = st.lastMoveId;
-            }
+                if (count === 2) {
+                    // 状態: 対局中へ
+                    try { await gameRef.child('status/phase').set('playing'); } catch (e) { console.warn('status/phase 書き込み失敗', e); }
+                    // 先手が初期state投入（1回だけ）
+                    if (playerRole === 'sente') {
+                        try {
+                            const started = (await gameRef.child('meta/startedAt').once('value')).val();
+                            if (!started) await pushInitialStateOnce(gameRef);
+                        } catch (e) {
+                            console.error('初期状態の書き込みに失敗しました。ルールで games/<id>/state と meta の書き込みを許可してください。', e);
+                        }
+                    }
+                    if (gameInfoElement) gameInfoElement.style.display = 'block';
+                    if (turnIndicator) turnIndicator.style.display = 'block';
+                    restoreChatOverlayState();
+                    if (typeof updateTurnIndicator === 'function') updateTurnIndicator();
+                }
 
-            // 既存の描画系を呼ぶ（関数が存在する前提）
-            if (typeof renderBoard === 'function') renderBoard();
-            if (typeof renderHands === 'function') renderHands();
-            if (typeof renderSummonPool === 'function') renderSummonPool();
-            if (typeof updateStatus === 'function') updateStatus();
-            if (typeof updateCounters === 'function') updateCounters();
+                // 役割選択UIの表示制御
+                const uid = firebase.auth().currentUser?.uid;
+                const myRoleKnown = !!(players[uid]?.role || (roles && (roles.sente === uid || roles.gote === uid)));
+                if (!gameState.gameOver && isOnlineGame && !isSpectator) {
+                    // 両役埋まっていない or 自分の役が未確定 → 表示
+                    const bothAssigned = !!(roles && roles.sente && roles.gote);
+                    roleSelect.style.display = (!bothAssigned || !myRoleKnown) ? 'block' : 'none';
+                    roleSelectMsg.textContent = (!bothAssigned) ? '役割を選んでください（先着優先）' : '';
+                } else {
+                    roleSelect.style.display = 'none';
+                }
 
-            setInputEnabled(isMyTurn());
-            if (turnIndicator) {
-              turnIndicator.textContent = isMyTurn() ? 'あなたの手番です' : '相手の手番です';
-            }
-          });
+                updateParticipantListDisplay();
+            });
 
-          // 互換: state が使えない環境向けにトップレベルも監視
-          gameRef.on('value', snap => {
-            if (!snap.exists()) {
-              alert('ゲームルームが削除されました');
-              leaveGameRoom().catch(err => console.error('ルーム離脱処理に失敗しました', err));
-              initGame();
-              return;
-            }
+            // roles ノードの変化を監視してロールを常に同期
+            gameRef.child('roles').on('value', snap => {
+                const roles = snap.val() || {};
+                const me = firebase.auth().currentUser?.uid;
+                if (!me) return;
+                if (isSpectator) {
+                    applyPlayerRole('spectator');
+                    return;
+                }
+                if (roles.sente === me) {
+                    applyPlayerRole('sente');
+                } else if (roles.gote === me) {
+                    applyPlayerRole('gote');
+                } else if (playerRole) {
+                    applyPlayerRole(null);
+                }
+            });
 
-            const st = snap.child('state').val();
-            if (st) return; // state が使えているならこちらは不要
-            const data = snap.val();
-            if (!data) return;
-            try {
-              if (data.lastMoveId && data.lastMoveId === gameState.lastProcessedMoveId) {
-                return;
-              }
-              if ('currentTurn' in data) gameState.currentTurn = data.currentTurn || gameState.currentTurn;
-              if ('board' in data) gameState.board = deserializeBoard(data.board);
-              if ('senteHand' in data) gameState.senteHand = normalizeList(data.senteHand);
-              if ('goteHand' in data) gameState.goteHand = normalizeList(data.goteHand);
-              if ('summonPool' in data) gameState.summonPool = normalizeList(data.summonPool);
-              if ('gameOver' in data) gameState.gameOver = !!data.gameOver;
-              if ('winner' in data) gameState.winner = data.winner || null;
-              if ('lastMoveId' in data) {
-                gameState.lastMoveId = data.lastMoveId;
-                gameState.lastProcessedMoveId = data.lastMoveId;
-              }
+            gameRef.child('spectators').on('value', snap => {
+                currentSpectators = snap.val() || {};
+                updateParticipantListDisplay();
+            });
 
-              if (typeof renderBoard === 'function') renderBoard();
-              if (typeof renderHands === 'function') renderHands();
-              if (typeof renderSummonPool === 'function') renderSummonPool();
-              if (typeof updateStatus === 'function') updateStatus();
-              if (typeof updateCounters === 'function') updateCounters();
+            // state 監視: UI反映・入力制御
+            gameRef.child('state').on('value', snap => {
+                const st = snap.val();
+                if (!st) return;
+                if (st.lastMoveId && st.lastMoveId === gameState.lastProcessedMoveId) {
+                    return;
+                }
+                if ('currentTurn' in st) gameState.currentTurn = st.currentTurn;
+                if ('board' in st) gameState.board = deserializeBoard(st.board);
+                if ('senteHand' in st) gameState.senteHand = normalizeList(st.senteHand);
+                if ('goteHand' in st) gameState.goteHand = normalizeList(st.goteHand);
+                if ('summonPool' in st) gameState.summonPool = normalizeList(st.summonPool);
+                if ('gameOver' in st) gameState.gameOver = !!st.gameOver;
+                if ('winner' in st) gameState.winner = st.winner || null;
+                if ('lastMoveId' in st) {
+                    gameState.lastMoveId = st.lastMoveId;
+                    gameState.lastProcessedMoveId = st.lastMoveId;
+                }
 
-              setInputEnabled(isMyTurn());
-              if (turnIndicator) {
-                turnIndicator.textContent = isMyTurn() ? 'あなたの手番です' : '相手の手番です';
-              }
-            } catch (e) {
-              console.warn('レガシー状態の反映に失敗', e);
-            }
-          });
+                // 既存の描画系を呼ぶ（関数が存在する前提）
+                if (typeof renderBoard === 'function') renderBoard();
+                if (typeof renderHands === 'function') renderHands();
+                if (typeof renderSummonPool === 'function') renderSummonPool();
+                if (typeof updateStatus === 'function') updateStatus();
+                if (typeof updateCounters === 'function') updateCounters();
 
-          isOnlineGame = true;
+                setInputEnabled(isMyTurn());
+                if (turnIndicator) {
+                    turnIndicator.textContent = isMyTurn() ? 'あなたの手番です' : '相手の手番です';
+                }
+            });
+
+            // 互換: state が使えない環境向けにトップレベルも監視
+            gameRef.on('value', snap => {
+                if (!snap.exists()) {
+                    alert('ゲームルームが削除されました');
+                    leaveGameRoom().catch(err => console.error('ルーム離脱処理に失敗しました', err));
+                    initGame();
+                    return;
+                }
+
+                const st = snap.child('state').val();
+                if (st) return; // state が使えているならこちらは不要
+                const data = snap.val();
+                if (!data) return;
+                try {
+                    if (data.lastMoveId && data.lastMoveId === gameState.lastProcessedMoveId) {
+                        return;
+                    }
+                    if ('currentTurn' in data) gameState.currentTurn = data.currentTurn || gameState.currentTurn;
+                    if ('board' in data) gameState.board = deserializeBoard(data.board);
+                    if ('senteHand' in data) gameState.senteHand = normalizeList(data.senteHand);
+                    if ('goteHand' in data) gameState.goteHand = normalizeList(data.goteHand);
+                    if ('summonPool' in data) gameState.summonPool = normalizeList(data.summonPool);
+                    if ('gameOver' in data) gameState.gameOver = !!data.gameOver;
+                    if ('winner' in data) gameState.winner = data.winner || null;
+                    if ('lastMoveId' in data) {
+                        gameState.lastMoveId = data.lastMoveId;
+                        gameState.lastProcessedMoveId = data.lastMoveId;
+                    }
+
+                    if (typeof renderBoard === 'function') renderBoard();
+                    if (typeof renderHands === 'function') renderHands();
+                    if (typeof renderSummonPool === 'function') renderSummonPool();
+                    if (typeof updateStatus === 'function') updateStatus();
+                    if (typeof updateCounters === 'function') updateCounters();
+
+                    setInputEnabled(isMyTurn());
+                    if (turnIndicator) {
+                        turnIndicator.textContent = isMyTurn() ? 'あなたの手番です' : '相手の手番です';
+                    }
+                } catch (e) {
+                    console.warn('レガシー状態の反映に失敗', e);
+                }
+            });
+
+            isOnlineGame = true;
         }
 
         // 2人オンラインなら phase を playing に
         async function startGameIfReady(id) {
-          const gameRef = database.ref(`games/${id}`);
-          const ps = (await gameRef.child('players').once('value')).val() || {};
-          const count = Object.values(ps).filter(p => p && p.online !== false).length;
-          if (count === 2) await gameRef.child('status/phase').set('playing');
+            const gameRef = database.ref(`games/${id}`);
+            const ps = (await gameRef.child('players').once('value')).val() || {};
+            const count = Object.values(ps).filter(p => p && p.online !== false).length;
+            if (count === 2) await gameRef.child('status/phase').set('playing');
         }
 
         // 役割選択（先手/後手）の確定処理（transactionで原子的に確保）
-        async function chooseRole(role){
-          if (!isOnlineGame || !gameId || isSpectator) return;
-          await ensureAnonAuth();
-          const uid = firebase.auth().currentUser.uid;
-          const ref = database.ref(`games/${gameId}`);
-          const tx = await ref.child('roles').transaction(cur => {
-            const roles = cur || {sente:null, gote:null};
-            // 既に自分がどちらかに入っていたら解放してから希望に入る
-            if (roles.sente === uid && role === 'gote') roles.sente = null;
-            if (roles.gote === uid && role === 'sente') roles.gote = null;
-            // 既に他人がその役を取っていたら中止
-            if (role === 'sente' && roles.sente && roles.sente !== uid) return; // abort
-            if (role === 'gote'  && roles.gote  && roles.gote  !== uid) return; // abort
-            // 確保
-            if (role === 'sente') roles.sente = uid; else roles.gote = uid;
-            return roles;
-          });
-          if (!tx.committed) { roleSelectMsg.textContent = 'その役は既に埋まっています'; return; }
-          await ref.child(`players/${uid}/role`).set(role);
-          applyPlayerRole(role);
-          roleSelectMsg.textContent = '役割を確定しました';
+        async function chooseRole(role) {
+            if (!isOnlineGame || !gameId || isSpectator) return;
+            await ensureAnonAuth();
+            const uid = firebase.auth().currentUser.uid;
+            const ref = database.ref(`games/${gameId}`);
+            const tx = await ref.child('roles').transaction(cur => {
+                const roles = cur || { sente: null, gote: null };
+                // 既に自分がどちらかに入っていたら解放してから希望に入る
+                if (roles.sente === uid && role === 'gote') roles.sente = null;
+                if (roles.gote === uid && role === 'sente') roles.gote = null;
+                // 既に他人がその役を取っていたら中止
+                if (role === 'sente' && roles.sente && roles.sente !== uid) return; // abort
+                if (role === 'gote' && roles.gote && roles.gote !== uid) return; // abort
+                // 確保
+                if (role === 'sente') roles.sente = uid; else roles.gote = uid;
+                return roles;
+            });
+            if (!tx.committed) { roleSelectMsg.textContent = 'その役は既に埋まっています'; return; }
+            await ref.child(`players/${uid}/role`).set(role);
+            applyPlayerRole(role);
+            roleSelectMsg.textContent = '役割を確定しました';
         }
 
         // phase 変更を監視してUIを有効化
         function watchGameStart(id) {
-          const sRef = database.ref(`games/${id}/status/phase`);
-          sRef.on('value', s => {
-            if (s && s.val() === 'playing') {
-              turnIndicator.textContent = playerRole === 'sente' ? 'あなたの先手番です' : '先手の着手待ち';
-              // TODO: 既存の盤面初期化/ボタン有効化などを呼ぶ
-              // 例: initGame(); enableBoardForOnline(); 等
-            } else {
-              turnIndicator.textContent = '対戦相手の接続を待っています…';
-            }
-          });
+            const sRef = database.ref(`games/${id}/status/phase`);
+            sRef.on('value', s => {
+                if (s && s.val() === 'playing') {
+                    turnIndicator.textContent = playerRole === 'sente' ? 'あなたの先手番です' : '先手の着手待ち';
+                    // TODO: 既存の盤面初期化/ボタン有効化などを呼ぶ
+                    // 例: initGame(); enableBoardForOnline(); 等
+                } else {
+                    turnIndicator.textContent = '対戦相手の接続を待っています…';
+                }
+            });
         }
 
         // コードから gameId を検索
-        async function findGameIdByCode(code){
+        async function findGameIdByCode(code) {
             await ensureAnonAuth();
             const snap = await firebase.database()
                 .ref('publicGames')
@@ -3834,45 +3932,45 @@
             await ensureAnonAuth();
             const boardData = serializeBoard(gameState.board);
             const st = {
-              currentTurn: gameState.currentTurn,
-              board: boardData,
-              senteHand: gameState.senteHand,
-              goteHand: gameState.goteHand,
-              summonPool: gameState.summonPool,
-              hasSummoned: gameState.hasSummoned,
-              mustPlaceLastSummoned: gameState.mustPlaceLastSummoned,
-              lastSummonedPiece: gameState.lastSummonedPiece,
-              gameOver: gameState.gameOver,
-              winner: gameState.winner,
-              inCheck: gameState.inCheck,
-              lastMove: gameState.lastMove,
-              lastMoveId: gameState.lastMoveId
+                currentTurn: gameState.currentTurn,
+                board: boardData,
+                senteHand: gameState.senteHand,
+                goteHand: gameState.goteHand,
+                summonPool: gameState.summonPool,
+                hasSummoned: gameState.hasSummoned,
+                mustPlaceLastSummoned: gameState.mustPlaceLastSummoned,
+                lastSummonedPiece: gameState.lastSummonedPiece,
+                gameOver: gameState.gameOver,
+                winner: gameState.winner,
+                inCheck: gameState.inCheck,
+                lastMove: gameState.lastMove,
+                lastMoveId: gameState.lastMoveId
             };
             await database.ref(`games/${gameId}/state`).set(st);
 
             // 互換: 旧ロジック向けにトップレベルにも保存
             const legacy = {
-              currentTurn: gameState.currentTurn,
-              board: JSON.stringify(boardData),
-              senteHand: JSON.stringify(gameState.senteHand),
-              goteHand: JSON.stringify(gameState.goteHand),
-              summonPool: JSON.stringify(gameState.summonPool),
-              hasSummoned: gameState.hasSummoned,
-              mustPlaceLastSummoned: gameState.mustPlaceLastSummoned,
-              lastSummonedPiece: gameState.lastSummonedPiece,
-              gameOver: gameState.gameOver,
-              winner: gameState.winner,
-              inCheck: JSON.stringify(gameState.inCheck),
-              lastMove: JSON.stringify(gameState.lastMove),
-              lastMoveId: gameState.lastMoveId,
-              lastUpdate: Date.now()
+                currentTurn: gameState.currentTurn,
+                board: JSON.stringify(boardData),
+                senteHand: JSON.stringify(gameState.senteHand),
+                goteHand: JSON.stringify(gameState.goteHand),
+                summonPool: JSON.stringify(gameState.summonPool),
+                hasSummoned: gameState.hasSummoned,
+                mustPlaceLastSummoned: gameState.mustPlaceLastSummoned,
+                lastSummonedPiece: gameState.lastSummonedPiece,
+                gameOver: gameState.gameOver,
+                winner: gameState.winner,
+                inCheck: JSON.stringify(gameState.inCheck),
+                lastMove: JSON.stringify(gameState.lastMove),
+                lastMoveId: gameState.lastMoveId,
+                lastUpdate: Date.now()
             };
             await database.ref(`games/${gameId}`).update(legacy);
         }
 
         // 自分のターンかどうかを確認
-        function isMyTurn(){
-          return isOnlineGame && playerRole === gameState.currentTurn && !gameState.gameOver;
+        function isMyTurn() {
+            return isOnlineGame && playerRole === gameState.currentTurn && !gameState.gameOver;
         }
 
         // ターン表示を更新
@@ -3978,14 +4076,14 @@
 
             // 召喚ボタンの状態
             summonButton.disabled = gameState.summonPool.length === 0 ||
-                                   gameState.hasSummoned ||
-                                   gameState.gameOver ||
-                                   !canAct;
+                gameState.hasSummoned ||
+                gameState.gameOver ||
+                !canAct;
 
             // パスボタンの状態
             passButton.disabled = gameState.gameOver ||
-                                (gameState.hasSummoned && gameState.mustPlaceLastSummoned) ||
-                                !canAct;
+                (gameState.hasSummoned && gameState.mustPlaceLastSummoned) ||
+                !canAct;
         }
 
         // カウンターを更新
@@ -4322,7 +4420,7 @@
 
             // 成れる条件（敵陣3段目以内に入った、または敵陣から出た）
             const isInPromotionZone = (piece.owner === 'sente' && (toY <= 2 || fromY <= 2)) ||
-                                     (piece.owner === 'gote' && (toY >= 6 || fromY >= 6));
+                (piece.owner === 'gote' && (toY >= 6 || fromY >= 6));
 
             if (isInPromotionZone) {
                 return true;
@@ -4330,11 +4428,11 @@
 
             // 成らないと動けない場合は自動的に成る
             const mustPromote = (piece.type === '歩' || piece.type === '香') &&
-                               ((piece.owner === 'sente' && toY === 0) ||
-                                (piece.owner === 'gote' && toY === 8)) ||
-                               (piece.type === '桂' &&
-                                ((piece.owner === 'sente' && toY <= 1) ||
-                                 (piece.owner === 'gote' && toY >= 7)));
+                ((piece.owner === 'sente' && toY === 0) ||
+                    (piece.owner === 'gote' && toY === 8)) ||
+                (piece.type === '桂' &&
+                    ((piece.owner === 'sente' && toY <= 1) ||
+                        (piece.owner === 'gote' && toY >= 7)));
 
             if (mustPromote) {
                 // 自動的に成る
@@ -4930,6 +5028,11 @@
             // 召喚ボタンの状態を更新
             updateStatus();
 
+            // 移動IDを生成して二重処理を防ぐ
+            const moveId = generateMoveId();
+            gameState.lastMoveId = moveId;
+            gameState.lastProcessedMoveId = moveId;
+
             // オンライン対戦の場合は状態を同期
             if (isOnlineGame) {
                 syncGameState();
@@ -4976,4 +5079,5 @@
         initGame();
     </script>
 </body>
+
 </html>
