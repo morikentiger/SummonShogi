@@ -1189,6 +1189,99 @@
             color: #666;
         }
 
+        /* 制限時間表示 */
+        .timer-container {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 15px;
+            padding: 10px;
+            background-color: white;
+            border: 2px solid var(--board-border);
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .timer {
+            flex: 1;
+            text-align: center;
+            padding: 10px;
+            border-radius: 6px;
+            background-color: #f0f0f0;
+            transition: all 0.3s ease;
+        }
+
+        .timer.active {
+            background-color: #ffe6e6;
+            box-shadow: 0 0 10px rgba(230, 0, 0, 0.3);
+        }
+
+        .timer.warning {
+            background-color: #ffcccc;
+            animation: timer-pulse 1s infinite;
+        }
+
+        @keyframes timer-pulse {
+
+            0%,
+            100% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.05);
+            }
+        }
+
+        .timer-label {
+            font-size: 0.9em;
+            font-weight: bold;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .timer-value {
+            font-size: 1.8em;
+            font-weight: bold;
+            font-family: 'Courier New', monospace;
+            color: #333;
+        }
+
+        .timer.warning .timer-value {
+            color: #e60000;
+        }
+
+        .time-settings {
+            margin-bottom: 15px;
+            padding: 15px;
+            background-color: white;
+            border: 2px solid var(--board-border);
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .time-settings label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .time-settings select {
+            width: 100%;
+            padding: 8px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            font-size: 1em;
+            background-color: white;
+        }
+
+        .time-settings select:focus {
+            outline: none;
+            border-color: var(--button-primary);
+        }
+
+
         /* チャット機能のスタイル */
         .chat-container {
             background-color: var(--chat-bg);
@@ -1522,6 +1615,18 @@
         </div>
 
         <div class="tab-content active" id="create-tab">
+            <div class="time-settings">
+                <label for="time-limit-select">制限時間（各プレイヤー）:</label>
+                <select id="time-limit-select">
+                    <option value="0">制限なし</option>
+                    <option value="60">1分</option>
+                    <option value="180">3分</option>
+                    <option value="300" selected>5分</option>
+                    <option value="600">10分</option>
+                    <option value="900">15分</option>
+                    <option value="1800">30分</option>
+                </select>
+            </div>
             <button id="create-game" class="create-game-button">部屋を作成する</button>
         </div>
 
@@ -1637,6 +1742,18 @@
                 </div>
                 <div style="margin-top: 10px; font-size: 0.85em; color: #8B4513; text-align: center;">
                     ※召喚したら、その駒を必ず盤面に打つ必要があります
+                </div>
+            </div>
+
+            <!-- 制限時間表示 -->
+            <div class="timer-container" id="timer-container" style="display: none;">
+                <div class="timer" id="sente-timer">
+                    <div class="timer-label">先手</div>
+                    <div class="timer-value" id="sente-time">--:--</div>
+                </div>
+                <div class="timer" id="gote-timer">
+                    <div class="timer-label">後手</div>
+                    <div class="timer-value" id="gote-time">--:--</div>
                 </div>
             </div>
 
@@ -1920,7 +2037,12 @@
             lastMove: null,
             pendingPromotion: null,
             lastMoveId: null,
-            lastProcessedMoveId: null
+            lastProcessedMoveId: null,
+            // タイマー関連
+            timeLimit: 0, // 制限時間（秒）、0は制限なし
+            senteTimeRemaining: 0, // 先手の残り時間（秒）
+            goteTimeRemaining: 0, // 後手の残り時間（秒）
+            lastTurnChangeTime: null // 最後に手番が変わった時刻
         };
 
         // 駒の種類と初期数
@@ -2604,6 +2726,16 @@
         const rematchControls = document.getElementById('rematch-controls');
         const rematchButton = document.getElementById('rematch-button');
         const rematchStatus = document.getElementById('rematch-status');
+
+        // タイマー関連のUI要素
+        const timeLimitSelect = document.getElementById('time-limit-select');
+        const timerContainer = document.getElementById('timer-container');
+        const senteTimer = document.getElementById('sente-timer');
+        const goteTimer = document.getElementById('gote-timer');
+        const senteTimeElement = document.getElementById('sente-time');
+        const goteTimeElement = document.getElementById('gote-time');
+        let timerInterval = null;
+
 
         // チャット機能用のUI要素
         const chatContainer = document.getElementById('chat-container');
@@ -3361,6 +3493,9 @@
             const id = code; // 便宜上 code をそのまま gameId に
             const now = Date.now();
 
+            // 制限時間を取得
+            const timeLimit = timeLimitSelect ? parseInt(timeLimitSelect.value) : 0;
+
             const gameRef = database.ref(`games/${id}`);
             await gameRef.set({
                 code, createdAt: now,
@@ -3368,7 +3503,8 @@
                 players: {
                     [uid]: { role: 'sente', nickname: localStorage.getItem('userNickname'), online: true, joinedAt: now }
                 },
-                roles: { sente: uid, gote: null }
+                roles: { sente: uid, gote: null },
+                timeLimit: timeLimit // 制限時間を保存
             });
 
             // 公開リスト（任意）
@@ -3386,6 +3522,12 @@
             gameCodeElement.textContent = code;
             turnIndicator.style.display = 'block';
             turnIndicator.textContent = '対戦相手の接続を待っています…';
+
+            // タイマーを初期化
+            gameState.timeLimit = timeLimit;
+            gameState.senteTimeRemaining = timeLimit;
+            gameState.goteTimeRemaining = timeLimit;
+            updateTimerDisplay();
 
             await attachGameListeners(id);
             restoreChatOverlayState();
@@ -4052,6 +4194,116 @@
             }
         }
 
+        // タイマー関連の関数
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function updateTimerDisplay() {
+            if (!timerContainer) return;
+
+            if (gameState.timeLimit === 0) {
+                timerContainer.style.display = 'none';
+                return;
+            }
+
+            timerContainer.style.display = 'flex';
+
+            if (senteTimeElement) {
+                senteTimeElement.textContent = formatTime(gameState.senteTimeRemaining);
+            }
+            if (goteTimeElement) {
+                goteTimeElement.textContent = formatTime(gameState.goteTimeRemaining);
+            }
+
+            // アクティブなタイマーをハイライト
+            if (senteTimer && goteTimer) {
+                senteTimer.classList.toggle('active', gameState.currentTurn === 'sente' && !gameState.gameOver);
+                goteTimer.classList.toggle('active', gameState.currentTurn === 'gote' && !gameState.gameOver);
+
+                // 残り時間が30秒以下で警告表示
+                senteTimer.classList.toggle('warning', gameState.senteTimeRemaining <= 30 && gameState.senteTimeRemaining > 0);
+                goteTimer.classList.toggle('warning', gameState.goteTimeRemaining <= 30 && gameState.goteTimeRemaining > 0);
+            }
+        }
+
+        function startTimer() {
+            if (gameState.timeLimit === 0 || gameState.gameOver) return;
+
+            stopTimer(); // 既存のタイマーを停止
+
+            gameState.lastTurnChangeTime = Date.now();
+
+            timerInterval = setInterval(() => {
+                if (gameState.gameOver || !isOnlineGame) {
+                    stopTimer();
+                    return;
+                }
+
+                const currentPlayer = gameState.currentTurn;
+                const timeKey = currentPlayer === 'sente' ? 'senteTimeRemaining' : 'goteTimeRemaining';
+
+                if (gameState[timeKey] > 0) {
+                    gameState[timeKey]--;
+                    updateTimerDisplay();
+
+                    // 時間切れチェック
+                    if (gameState[timeKey] === 0) {
+                        handleTimeUp(currentPlayer);
+                    }
+
+                    // オンライン対戦時は状態を同期
+                    if (isOnlineGame && isMyTurn()) {
+                        syncGameState();
+                    }
+                }
+            }, 1000);
+        }
+
+        function stopTimer() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+        }
+
+        function handleTimeUp(player) {
+            stopTimer();
+            gameState.gameOver = true;
+            gameState.winner = player === 'sente' ? 'gote' : 'sente';
+
+            const loserText = player === 'sente' ? '先手' : '後手';
+            const winnerText = player === 'sente' ? '後手' : '先手';
+
+            statusElement.innerHTML = `<strong>${winnerText}の勝利！</strong><br>${loserText}の時間切れ`;
+
+            playSound('gameover');
+
+            // 結果オーバーレイを表示
+            if (isOnlineGame) {
+                if (playerRole === gameState.winner) {
+                    showResultOverlay('win');
+                } else if (playerRole) {
+                    showResultOverlay('lose');
+                } else {
+                    showResultOverlay(gameState.winner === 'sente' ? 'sente-win' : 'gote-win');
+                }
+            } else {
+                showResultOverlay(gameState.winner === 'sente' ? 'sente-win' : 'gote-win');
+            }
+
+            // オンライン対戦の場合は状態を同期
+            if (isOnlineGame && !isSpectator) {
+                syncGameState();
+            }
+
+            updateStatus();
+            renderBoard();
+        }
+
+
         // ゲームを初期化
         function initGame() {
             hideResultOverlay(false);
@@ -4106,6 +4358,10 @@
             }
 
             updateChatInputState();
+
+            // タイマーを停止して表示を更新
+            stopTimer();
+            updateTimerDisplay();
         }
 
         // ボタンの状態を更新
