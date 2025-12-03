@@ -3680,6 +3680,10 @@
 
             const boardData = serializeBoard(gameState.board);
 
+            // タイマー情報を取得
+            const timeLimitSnapshot = await gameRef.child('timeLimit').once('value');
+            const timeLimit = timeLimitSnapshot.val() || 0;
+
             const init = {
                 currentTurn: 'sente',
                 board: boardData,
@@ -3692,7 +3696,11 @@
                 winner: null,
                 inCheck: { sente: false, gote: false },
                 lastMove: null,
-                lastMoveId: null
+                lastMoveId: null,
+                timeLimit: timeLimit,
+                senteTimeRemaining: timeLimit,
+                goteTimeRemaining: timeLimit,
+                lastTurnChangeTime: Date.now()
             };
             await gameRef.child('state').set(init);
 
@@ -3711,6 +3719,10 @@
                 inCheck: JSON.stringify(init.inCheck),
                 lastMove: JSON.stringify(init.lastMove),
                 lastMoveId: init.lastMoveId,
+                timeLimit: init.timeLimit,
+                senteTimeRemaining: init.senteTimeRemaining,
+                goteTimeRemaining: init.goteTimeRemaining,
+                lastTurnChangeTime: init.lastTurnChangeTime,
                 lastUpdate: Date.now()
             };
             await gameRef.update(legacy);
@@ -3840,6 +3852,10 @@
                 if ('inCheck' in st) gameState.inCheck = st.inCheck || { sente: false, gote: false };
                 if ('gameOver' in st) gameState.gameOver = !!st.gameOver;
                 if ('winner' in st) gameState.winner = st.winner || null;
+                if ('timeLimit' in st) gameState.timeLimit = st.timeLimit || 0;
+                if ('senteTimeRemaining' in st) gameState.senteTimeRemaining = st.senteTimeRemaining || 0;
+                if ('goteTimeRemaining' in st) gameState.goteTimeRemaining = st.goteTimeRemaining || 0;
+                if ('lastTurnChangeTime' in st) gameState.lastTurnChangeTime = st.lastTurnChangeTime;
                 if ('lastMoveId' in st) {
                     gameState.lastMoveId = st.lastMoveId;
                     gameState.lastProcessedMoveId = st.lastMoveId;
@@ -3851,6 +3867,12 @@
                 if (typeof renderSummonPool === 'function') renderSummonPool();
                 if (typeof updateStatus === 'function') updateStatus();
                 if (typeof updateCounters === 'function') updateCounters();
+                if (typeof updateTimerDisplay === 'function') updateTimerDisplay();
+
+                // タイマーを開始（自分の手番の場合のみ）
+                if (isMyTurn() && !gameState.gameOver && gameState.timeLimit > 0) {
+                    startTimer();
+                }
 
                 setInputEnabled(isMyTurn());
                 if (turnIndicator) {
@@ -3892,6 +3914,10 @@
                     }
                     if ('gameOver' in data) gameState.gameOver = !!data.gameOver;
                     if ('winner' in data) gameState.winner = data.winner || null;
+                    if ('timeLimit' in data) gameState.timeLimit = data.timeLimit || 0;
+                    if ('senteTimeRemaining' in data) gameState.senteTimeRemaining = data.senteTimeRemaining || 0;
+                    if ('goteTimeRemaining' in data) gameState.goteTimeRemaining = data.goteTimeRemaining || 0;
+                    if ('lastTurnChangeTime' in data) gameState.lastTurnChangeTime = data.lastTurnChangeTime;
                     if ('lastMoveId' in data) {
                         gameState.lastMoveId = data.lastMoveId;
                         gameState.lastProcessedMoveId = data.lastMoveId;
@@ -3902,6 +3928,7 @@
                     if (typeof renderSummonPool === 'function') renderSummonPool();
                     if (typeof updateStatus === 'function') updateStatus();
                     if (typeof updateCounters === 'function') updateCounters();
+                    if (typeof updateTimerDisplay === 'function') updateTimerDisplay();
 
                     setInputEnabled(isMyTurn());
                     if (turnIndicator) {
@@ -4115,7 +4142,11 @@
                 winner: gameState.winner,
                 inCheck: gameState.inCheck,
                 lastMove: gameState.lastMove,
-                lastMoveId: gameState.lastMoveId
+                lastMoveId: gameState.lastMoveId,
+                timeLimit: gameState.timeLimit,
+                senteTimeRemaining: gameState.senteTimeRemaining,
+                goteTimeRemaining: gameState.goteTimeRemaining,
+                lastTurnChangeTime: gameState.lastTurnChangeTime
             };
             await database.ref(`games/${gameId}/state`).set(st);
 
@@ -4134,6 +4165,10 @@
                 inCheck: JSON.stringify(gameState.inCheck),
                 lastMove: JSON.stringify(gameState.lastMove),
                 lastMoveId: gameState.lastMoveId,
+                timeLimit: gameState.timeLimit,
+                senteTimeRemaining: gameState.senteTimeRemaining,
+                goteTimeRemaining: gameState.goteTimeRemaining,
+                lastTurnChangeTime: gameState.lastTurnChangeTime,
                 lastUpdate: Date.now()
             };
             await database.ref(`games/${gameId}`).update(legacy);
@@ -5383,6 +5418,17 @@
             gameState.hasSummoned = false;
             gameState.mustPlaceLastSummoned = false;
             gameState.lastSummonedPiece = null;
+
+            // タイマーを切り替え
+            if (gameState.timeLimit > 0 && isOnlineGame) {
+                gameState.lastTurnChangeTime = Date.now();
+                updateTimerDisplay();
+                if (isMyTurn()) {
+                    startTimer();
+                } else {
+                    stopTimer();
+                }
+            }
 
             // UI更新
             renderBoard();
