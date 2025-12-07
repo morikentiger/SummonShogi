@@ -708,66 +708,92 @@
         }
 
         .hand-container {
-            background-color: white;
-            border: 2px solid var(--board-border);
+            background: linear-gradient(135deg, rgba(0, 50, 80, 0.95) 0%, rgba(0, 30, 60, 0.95) 100%);
+            border: 2px solid rgba(255, 215, 0, 0.3);
             border-radius: 8px;
-            padding: 15px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 8px 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
         }
 
         .hand-title {
-            margin-bottom: 10px;
+            margin-bottom: 6px;
             font-weight: bold;
             display: flex;
             align-items: center;
             justify-content: space-between;
+            color: #FFD700;
+            font-size: 0.85em;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
         }
 
         .hand-title span {
             font-size: 0.9em;
-            color: #777;
+            color: rgba(255, 255, 255, 0.7);
         }
 
         .hand {
             display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            min-height: 60px;
+            flex-wrap: nowrap;
+            gap: 4px;
+            min-height: 50px;
+            align-items: center;
         }
 
         .hand-piece {
-            width: 40px;
-            height: 40px;
+            width: 36px;
+            height: 42px;
             display: flex;
             justify-content: center;
             align-items: center;
             font-family: 'Noto Serif JP', serif;
             font-weight: bold;
+            font-size: 1.1em;
             user-select: none;
-            transition: all 0.2s ease;
+            transition: all 0.15s ease;
             position: relative;
             cursor: pointer;
             --hand-rotation: 0deg;
             transform: rotate(var(--hand-rotation));
+            clip-path: polygon(50% 0%, 100% 20%, 100% 100%, 0% 100%, 0% 20%);
+        }
 
-            /* 五角形の形状 */
-            clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+        .hand-piece .piece-char {
+            z-index: 1;
+        }
+
+        .hand-piece .count-badge {
+            position: absolute;
+            bottom: -2px;
+            right: -4px;
+            background: linear-gradient(135deg, #FF6B6B 0%, #e74c3c 100%);
+            color: #fff;
+            font-size: 0.65em;
+            font-weight: bold;
+            min-width: 14px;
+            height: 14px;
+            border-radius: 7px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+            transform: rotate(calc(-1 * var(--hand-rotation)));
+            z-index: 2;
         }
 
         .hand-piece.sente {
-            background-color: var(--piece-sente-bg);
-            border: 2px solid var(--piece-sente-border);
-            color: var(--sente-color);
+            background: linear-gradient(145deg, #FFF8DC 0%, #DEB887 100%);
+            border: 1px solid #C19A6B;
+            color: #4A3728;
             --hand-rotation: 0deg;
-            box-shadow: 0 2px 4px var(--piece-shadow);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
         }
 
         .hand-piece.gote {
-            background-color: var(--piece-gote-bg);
-            border: 2px solid var(--piece-gote-border);
-            color: var(--gote-color);
+            background: linear-gradient(145deg, #E8E8E8 0%, #B8B8B8 100%);
+            border: 1px solid #888;
+            color: #2c3e50;
             --hand-rotation: 180deg;
-            box-shadow: 0 2px 4px var(--piece-shadow);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
         }
 
         body.board-flipped .hand-piece.sente {
@@ -785,34 +811,35 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background: linear-gradient(135deg, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0) 50%);
-            clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
-            z-index: -1;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0) 40%);
+            clip-path: polygon(50% 0%, 100% 20%, 100% 100%, 0% 100%, 0% 20%);
+            z-index: 0;
         }
 
         .hand-piece:hover {
-            background-color: var(--highlight);
-            transform: rotate(var(--hand-rotation)) scale(1.05);
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+            transform: rotate(var(--hand-rotation)) scale(1.12) translateY(-2px);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+            z-index: 10;
         }
 
         .hand-piece.gote:hover {
-            transform: translateY(-2px) rotate(180deg);
+            transform: rotate(180deg) scale(1.12) translateY(2px);
         }
 
         /* 召喚した駒の強調表示 */
         .hand-piece.summoned {
-            animation: summon-glow 1.5s ease-in-out infinite;
-            box-shadow: 0 0 15px rgba(255, 215, 0, 0.8), 0 4px 6px rgba(0, 0, 0, 0.15);
-            border: 3px solid #FFD700;
-            background: linear-gradient(135deg, #FFF8DC 0%, #F0E68C 100%);
+            animation: summon-glow 1.2s ease-in-out infinite;
+            box-shadow: 0 0 12px rgba(255, 215, 0, 0.9), 0 3px 8px rgba(0, 0, 0, 0.25);
+            border: 2px solid #FFD700;
         }
 
         .hand-piece.summoned.sente {
+            background: linear-gradient(145deg, #FFFACD 0%, #FFD700 100%);
             color: #8B4513;
         }
 
         .hand-piece.summoned.gote {
+            background: linear-gradient(145deg, #FFFACD 0%, #FFD700 100%);
             color: #2d6a4f;
         }
 
@@ -5610,7 +5637,20 @@
                         pieceElement.classList.add('summoned');
                     }
 
-                    pieceElement.textContent = count > 1 ? `${piece}${count}` : piece;
+                    // 駒の文字
+                    const pieceChar = document.createElement('span');
+                    pieceChar.className = 'piece-char';
+                    pieceChar.textContent = piece;
+                    pieceElement.appendChild(pieceChar);
+
+                    // 枚数が2以上の場合はバッジを表示
+                    if (count > 1) {
+                        const badge = document.createElement('span');
+                        badge.className = 'count-badge';
+                        badge.textContent = count;
+                        pieceElement.appendChild(badge);
+                    }
+
                     pieceElement.dataset.type = piece;
                     pieceElement.addEventListener('click', () => {
                         if (isOnlineGame && playerRole !== 'sente') return; // オンライン対戦時は自分の持ち駒だけ
@@ -5646,7 +5686,20 @@
                         pieceElement.classList.add('summoned');
                     }
 
-                    pieceElement.textContent = count > 1 ? `${piece}${count}` : piece;
+                    // 駒の文字
+                    const pieceChar = document.createElement('span');
+                    pieceChar.className = 'piece-char';
+                    pieceChar.textContent = piece;
+                    pieceElement.appendChild(pieceChar);
+
+                    // 枚数が2以上の場合はバッジを表示
+                    if (count > 1) {
+                        const badge = document.createElement('span');
+                        badge.className = 'count-badge';
+                        badge.textContent = count;
+                        pieceElement.appendChild(badge);
+                    }
+
                     pieceElement.dataset.type = piece;
                     pieceElement.addEventListener('click', () => {
                         if (isOnlineGame && playerRole !== 'gote') return; // オンライン対戦時は自分の持ち駒だけ
