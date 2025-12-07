@@ -6955,6 +6955,12 @@
                                 window.initGame();
                             }
 
+                            // ターン表示を更新
+                            if (typeof updateTurnIndicator === 'function') {
+                                updateTurnIndicator();
+                                console.log('Turn indicator updated after opponent joined');
+                            }
+
                             // ゲーム状態をオンラインに設定（メインスクリプトの変数を更新できないので、window経由で同期）
                             window.showToast('対戦相手が見つかりました！ゲーム開始！', 'success');
                         }, 1000);
@@ -7090,6 +7096,12 @@
                         initDeckGame();
                     } else {
                         window.initGame();
+                    }
+
+                    // ターン表示を更新
+                    if (typeof updateTurnIndicator === 'function') {
+                        updateTurnIndicator();
+                        console.log('Turn indicator updated after joining room');
                     }
 
                 } catch (error) {
@@ -7723,6 +7735,12 @@
             if (isOnline && typeof window.syncGameState === 'function') {
                 window.syncGameState();
                 console.log('Initial game state synced to Firebase');
+            }
+
+            // ターン表示を更新（オンライン対戦の場合）
+            if (typeof updateTurnIndicator === 'function') {
+                updateTurnIndicator();
+                console.log('Turn indicator updated after game start');
             }
 
             console.log('Game started, current turn:', gameState.currentTurn);
