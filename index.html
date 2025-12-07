@@ -2606,87 +2606,6 @@
 
         <div id="toast-container" aria-live="polite" aria-atomic="true"></div>
 
-        <div class="online-controls">
-            <h3>オンライン対戦</h3>
-
-            <div class="tab-buttons">
-                <button class="tab-button active" data-tab="create-tab">部屋を作成</button>
-                <button class="tab-button" data-tab="join-tab">部屋に参加</button>
-                <button class="tab-button" data-tab="watch-tab">観戦する</button>
-            </div>
-
-            <div class="tab-content active" id="create-tab">
-                <div class="time-settings">
-                    <label for="time-limit-select">制限時間（各プレイヤー）:</label>
-                    <select id="time-limit-select">
-                        <option value="0">制限なし</option>
-                        <option value="60">1分</option>
-                        <option value="180">3分</option>
-                        <option value="300" selected>5分</option>
-                        <option value="600">10分</option>
-                        <option value="900">15分</option>
-                        <option value="1800">30分</option>
-                    </select>
-                </div>
-                <button id="create-game" class="create-game-button">部屋を作成する</button>
-            </div>
-
-            <div class="tab-content" id="join-tab">
-                <div class="public-games-list" id="public-games-list">
-                    <div class="no-games-message">現在公開された部屋はありません</div>
-                </div>
-
-                <div id="join-form">
-                    <input type="text" id="game-code-input" placeholder="ゲームコードを入力して参加">
-                    <button id="join-submit">参加</button>
-                </div>
-            </div>
-
-            <div class="tab-content" id="watch-tab">
-                <div class="public-games-list" id="spectator-games-list">
-                    <div class="no-games-message">現在観戦できる部屋はありません</div>
-                </div>
-
-                <div id="watch-form">
-                    <input type="text" id="watch-code-input" placeholder="ゲームコードを入力して観戦">
-                    <button id="watch-submit">観戦を開始</button>
-                </div>
-            </div>
-
-            <!-- 役割選択（先手/後手） -->
-            <div id="role-select" class="role-select" style="display: none; margin-top:10px;">
-                <div style="display:flex; gap:8px; justify-content:center;">
-                    <button id="choose-sente"
-                        style="background:#8B4513; color:#fff; padding:8px 12px; border:none; border-radius:4px; font-weight:bold;">先手になる</button>
-                    <button id="choose-gote"
-                        style="background:#2d6a4f; color:#fff; padding:8px 12px; border:none; border-radius:4px; font-weight:bold;">後手になる</button>
-                </div>
-                <div id="role-select-msg" style="margin-top:6px; text-align:center; color:#8B4513; font-size:0.9em;">
-                </div>
-            </div>
-
-            <div id="game-info" style="display: none;">
-                <p>ゲームコード: <span id="game-code"></span></p>
-                <p>あなたは<span id="player-role"></span>です</p>
-            </div>
-
-            <div id="participants" style="display:none; margin-top:10px;">
-                <h4 style="margin-bottom:6px;">参加者一覧</h4>
-                <ul id="participant-list"
-                    style="list-style:none; padding:0; margin:0; font-size:0.95em; display:flex; flex-direction:column; gap:4px;">
-                </ul>
-            </div>
-
-            <div id="turn-indicator" class="turn-indicator" style="display: none;">
-                待機中...
-            </div>
-
-            <div id="rematch-controls" style="display: none;">
-                <button id="rematch-button">リマッチを申し込む</button>
-                <div id="rematch-status"></div>
-            </div>
-        </div>
-
         <div class="game-container game-layout">
             <div class="controls">
                 <!-- 後手の持ち駒 -->
@@ -2767,9 +2686,21 @@
                 <!-- ボタン類（最下部） -->
                 <div class="status-panel">
                     <div class="status" id="status">ゲームを開始します</div>
+
+                    <!-- ターン表示 -->
+                    <div id="turn-indicator" class="turn-indicator" style="display: none;">
+                        待機中...
+                    </div>
+
                     <div class="action-buttons">
                         <button id="pass-button" disabled>パス</button>
                         <button id="reset-button">リセット</button>
+                    </div>
+
+                    <!-- リマッチコントロール -->
+                    <div id="rematch-controls" style="display: none; margin-top: 10px;">
+                        <button id="rematch-button">リマッチを申し込む</button>
+                        <div id="rematch-status"></div>
                     </div>
                 </div>
             </div>
