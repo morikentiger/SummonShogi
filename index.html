@@ -6642,6 +6642,7 @@
             window.updateStatus = updateStatus;
             window.updateStatus = updateStatus;
             window.showToast = showToast;
+            window.syncGameState = syncGameState; // デッキルールからアクセス可能にする
 
             // 待機オーバーレイの制御
             window.showGameWaitingOverlay = () => {
@@ -7697,8 +7698,8 @@
 
             // オンライン対戦の場合、ゲーム開始時の状態をFirebaseに同期
             const isOnline = window.getIsOnlineGame ? window.getIsOnlineGame() : false;
-            if (isOnline && typeof syncGameState === 'function') {
-                syncGameState();
+            if (isOnline && typeof window.syncGameState === 'function') {
+                window.syncGameState();
                 console.log('Initial game state synced to Firebase');
             }
 
