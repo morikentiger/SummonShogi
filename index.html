@@ -5491,7 +5491,12 @@
 
                 // オンライン対戦の場合は状態を同期
                 if (isOnlineGame && !isSpectator) {
-                    syncGameState();
+                    console.log('Syncing game state after time up...');
+                    if (typeof window.syncGameState === 'function') {
+                        window.syncGameState();
+                    } else {
+                        console.error('window.syncGameState is not a function');
+                    }
                 }
 
                 updateStatus();
@@ -6028,8 +6033,18 @@
                 updateCounters();
 
                 // オンライン対戦の場合は状態を同期
-                if (isOnlineGame && !isSpectator) {
-                    syncGameState();
+                // グローバルな isOnlineGame 変数を確認
+                const isOnline = typeof isOnlineGame !== 'undefined' ? isOnlineGame : (window.getIsOnlineGame ? window.getIsOnlineGame() : false);
+
+                if (isOnline && !isSpectator) {
+                    console.log('Syncing game state after move...');
+                    if (typeof window.syncGameState === 'function') {
+                        window.syncGameState();
+                    } else if (typeof syncGameState === 'function') {
+                        syncGameState();
+                    } else {
+                        console.error('syncGameState function not found');
+                    }
                 }
             }
 
@@ -6621,7 +6636,14 @@
                 }
 
                 if (isOnlineGame) {
-                    syncGameState();
+                    console.log('Syncing game state after turn switch...');
+                    if (typeof window.syncGameState === 'function') {
+                        window.syncGameState();
+                    } else if (typeof syncGameState === 'function') {
+                        syncGameState();
+                    } else {
+                        console.error('syncGameState function not found');
+                    }
                 }
 
                 // ターン表示を更新
