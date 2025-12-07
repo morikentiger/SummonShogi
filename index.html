@@ -5258,46 +5258,66 @@
                 if (syncBtn) syncBtn.classList.add('syncing');
 
                 try {
-                    const snapshot = await database.ref(`games/${gameId}/state`).once('value');
-                    const st = snapshot.val();
+                    // まずゲーム状態を確認
+                    const stateSnapshot = await database.ref(`games/${gameId}/state`).once('value');
+                    const st = stateSnapshot.val();
 
-                    if (!st) {
-                        window.showToast('ゲームデータが見つかりません', 'error');
-                        return;
+                    if (st) {
+                        // ゲームが開始している場合
+                        // 強制的に状態を更新（lastMoveIdチェックを無視）
+                        if ('currentTurn' in st) gameState.currentTurn = st.currentTurn;
+                        if ('board' in st) gameState.board = deserializeBoard(st.board);
+                        if ('senteHand' in st) gameState.senteHand = normalizeList(st.senteHand);
+                        if ('goteHand' in st) gameState.goteHand = normalizeList(st.goteHand);
+                        if ('summonPool' in st) gameState.summonPool = normalizeList(st.summonPool);
+                        if ('hasSummoned' in st) gameState.hasSummoned = !!st.hasSummoned;
+                        if ('mustPlaceLastSummoned' in st) gameState.mustPlaceLastSummoned = !!st.mustPlaceLastSummoned;
+                        if ('lastSummonedPiece' in st) gameState.lastSummonedPiece = st.lastSummonedPiece || null;
+                        if ('inCheck' in st) gameState.inCheck = st.inCheck || { sente: false, gote: false };
+                        if ('gameOver' in st) gameState.gameOver = !!st.gameOver;
+                        if ('winner' in st) gameState.winner = st.winner || null;
+                        if ('timeLimit' in st) gameState.timeLimit = st.timeLimit || 0;
+                        if ('senteTimeRemaining' in st) gameState.senteTimeRemaining = st.senteTimeRemaining || 0;
+                        if ('goteTimeRemaining' in st) gameState.goteTimeRemaining = st.goteTimeRemaining || 0;
+                        if ('lastTurnChangeTime' in st) gameState.lastTurnChangeTime = st.lastTurnChangeTime;
+                        if ('lastMoveId' in st) {
+                            gameState.lastMoveId = st.lastMoveId;
+                            gameState.lastProcessedMoveId = st.lastMoveId;
+                        }
+
+                        // UI更新
+                        renderBoard();
+                        renderHands();
+                        renderSummonPool();
+                        updateStatus();
+                        updateCounters();
+                        updateTimerDisplay();
+                        updateTurnIndicator();
+                        updateButtonsState();
+
+                        window.showToast('同期完了', 'success');
+                    } else {
+                        // ゲームがまだ開始していない（配置フェーズ中）
+                        const placementSnapshot = await database.ref(`games/${gameId}/placement`).once('value');
+                        const placement = placementSnapshot.val();
+
+                        if (placement) {
+                            const myRole = window.getPlayerRole();
+                            const opponentRole = myRole === 'sente' ? 'gote' : 'sente';
+
+                            if (placement[opponentRole] && placement[opponentRole].completed) {
+                                // 相手は配置完了している → ゲーム開始処理を再実行
+                                if (placement.sente && placement.sente.completed && placement.gote && placement.gote.completed) {
+                                    window.showToast('両者配置完了を検出、ゲームを開始します', 'success');
+                                    startGameFromPlacementData(placement);
+                                }
+                            } else {
+                                window.showToast('相手の配置を待っています...', 'info');
+                            }
+                        } else {
+                            window.showToast('配置データがありません', 'warn');
+                        }
                     }
-
-                    // 強制的に状態を更新（lastMoveIdチェックを無視）
-                    if ('currentTurn' in st) gameState.currentTurn = st.currentTurn;
-                    if ('board' in st) gameState.board = deserializeBoard(st.board);
-                    if ('senteHand' in st) gameState.senteHand = normalizeList(st.senteHand);
-                    if ('goteHand' in st) gameState.goteHand = normalizeList(st.goteHand);
-                    if ('summonPool' in st) gameState.summonPool = normalizeList(st.summonPool);
-                    if ('hasSummoned' in st) gameState.hasSummoned = !!st.hasSummoned;
-                    if ('mustPlaceLastSummoned' in st) gameState.mustPlaceLastSummoned = !!st.mustPlaceLastSummoned;
-                    if ('lastSummonedPiece' in st) gameState.lastSummonedPiece = st.lastSummonedPiece || null;
-                    if ('inCheck' in st) gameState.inCheck = st.inCheck || { sente: false, gote: false };
-                    if ('gameOver' in st) gameState.gameOver = !!st.gameOver;
-                    if ('winner' in st) gameState.winner = st.winner || null;
-                    if ('timeLimit' in st) gameState.timeLimit = st.timeLimit || 0;
-                    if ('senteTimeRemaining' in st) gameState.senteTimeRemaining = st.senteTimeRemaining || 0;
-                    if ('goteTimeRemaining' in st) gameState.goteTimeRemaining = st.goteTimeRemaining || 0;
-                    if ('lastTurnChangeTime' in st) gameState.lastTurnChangeTime = st.lastTurnChangeTime;
-                    if ('lastMoveId' in st) {
-                        gameState.lastMoveId = st.lastMoveId;
-                        gameState.lastProcessedMoveId = st.lastMoveId;
-                    }
-
-                    // UI更新
-                    renderBoard();
-                    renderHands();
-                    renderSummonPool();
-                    updateStatus();
-                    updateCounters();
-                    updateTimerDisplay();
-                    updateTurnIndicator();
-                    updateButtonsState();
-
-                    window.showToast('同期完了', 'success');
                 } catch (error) {
                     console.error('同期エラー:', error);
                     window.showToast('同期に失敗しました', 'error');
@@ -5305,6 +5325,7 @@
                     if (syncBtn) syncBtn.classList.remove('syncing');
                 }
             }
+
 
 
             // ターン表示を更新
