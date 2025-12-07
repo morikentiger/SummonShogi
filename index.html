@@ -100,6 +100,47 @@
             transform: translateY(-50%) scale(0.98);
         }
 
+        .sync-btn {
+            position: absolute;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            padding: 8px 16px;
+            background-color: rgba(76, 175, 80, 0.3);
+            color: white;
+            border: 1px solid rgba(76, 175, 80, 0.5);
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.9em;
+            font-weight: bold;
+            transition: all 0.2s ease;
+            backdrop-filter: blur(5px);
+        }
+
+        .sync-btn:hover {
+            background-color: rgba(76, 175, 80, 0.5);
+            transform: translateY(-50%) scale(1.05);
+        }
+
+        .sync-btn:active {
+            transform: translateY(-50%) scale(0.98);
+        }
+
+        .sync-btn.syncing {
+            animation: rotate 1s linear infinite;
+        }
+
+        @keyframes rotate {
+            from {
+                transform: translateY(-50%) rotate(0deg);
+            }
+
+            to {
+                transform: translateY(-50%) rotate(360deg);
+            }
+        }
+
+
         h1 {
             font-family: 'Noto Serif JP', serif;
             font-size: 1.8rem;
@@ -2436,6 +2477,7 @@
         <div class="header">
             <button class="back-to-title-btn" id="back-to-title-game">← タイトルへ</button>
             <h1>オンライン対戦対応 召喚将棋</h1>
+            <button class="sync-btn" id="manual-sync-btn" style="display: none;" title="盤面を最新状態に同期">🔄 同期</button>
             <div class="user-info" id="user-info" style="display: none;">
                 <div class="user-avatar" id="user-avatar">N</div>
                 <span id="user-nickname">未ログイン</span>
@@ -5161,6 +5203,66 @@
                 return isOnlineGame && playerRole === gameState.currentTurn && !gameState.gameOver;
             }
 
+            // 手動同期：Firebaseから最新状態を強制取得
+            async function forceSync() {
+                if (!isOnlineGame || !gameId) {
+                    window.showToast('オンラインゲームではありません', 'warn');
+                    return;
+                }
+
+                const syncBtn = document.getElementById('manual-sync-btn');
+                if (syncBtn) syncBtn.classList.add('syncing');
+
+                try {
+                    const snapshot = await database.ref(`games/${gameId}/state`).once('value');
+                    const st = snapshot.val();
+
+                    if (!st) {
+                        window.showToast('ゲームデータが見つかりません', 'error');
+                        return;
+                    }
+
+                    // 強制的に状態を更新（lastMoveIdチェックを無視）
+                    if ('currentTurn' in st) gameState.currentTurn = st.currentTurn;
+                    if ('board' in st) gameState.board = deserializeBoard(st.board);
+                    if ('senteHand' in st) gameState.senteHand = normalizeList(st.senteHand);
+                    if ('goteHand' in st) gameState.goteHand = normalizeList(st.goteHand);
+                    if ('summonPool' in st) gameState.summonPool = normalizeList(st.summonPool);
+                    if ('hasSummoned' in st) gameState.hasSummoned = !!st.hasSummoned;
+                    if ('mustPlaceLastSummoned' in st) gameState.mustPlaceLastSummoned = !!st.mustPlaceLastSummoned;
+                    if ('lastSummonedPiece' in st) gameState.lastSummonedPiece = st.lastSummonedPiece || null;
+                    if ('inCheck' in st) gameState.inCheck = st.inCheck || { sente: false, gote: false };
+                    if ('gameOver' in st) gameState.gameOver = !!st.gameOver;
+                    if ('winner' in st) gameState.winner = st.winner || null;
+                    if ('timeLimit' in st) gameState.timeLimit = st.timeLimit || 0;
+                    if ('senteTimeRemaining' in st) gameState.senteTimeRemaining = st.senteTimeRemaining || 0;
+                    if ('goteTimeRemaining' in st) gameState.goteTimeRemaining = st.goteTimeRemaining || 0;
+                    if ('lastTurnChangeTime' in st) gameState.lastTurnChangeTime = st.lastTurnChangeTime;
+                    if ('lastMoveId' in st) {
+                        gameState.lastMoveId = st.lastMoveId;
+                        gameState.lastProcessedMoveId = st.lastMoveId;
+                    }
+
+                    // UI更新
+                    renderBoard();
+                    renderHands();
+                    renderSummonPool();
+                    updateStatus();
+                    updateCounters();
+                    updateTimerDisplay();
+                    updateTurnIndicator();
+                    updateButtonsState();
+
+                    window.showToast('同期完了', 'success');
+                } catch (error) {
+                    console.error('同期エラー:', error);
+                    window.showToast('同期に失敗しました', 'error');
+                } finally {
+                    if (syncBtn) syncBtn.classList.remove('syncing');
+                }
+            }
+
+
             // ターン表示を更新
             function updateTurnIndicator() {
                 if (!isOnlineGame) {
@@ -6501,6 +6603,8 @@
         const joinRoomBtn = document.getElementById('join-room-btn');
         const spectateModeBtn = document.getElementById('spectate-mode-btn');
         const ruleCards = document.querySelectorAll('.rule-card');
+        const manualSyncBtn = document.getElementById('manual-sync-btn');
+
 
         let selectedRule = null;
         let playMode = null; // 'local', 'online', 'spectate'
@@ -6587,6 +6691,14 @@
             console.error('back-to-title-game button not found');
         }
 
+        // 手動同期ボタン
+        if (manualSyncBtn) {
+            manualSyncBtn.addEventListener('click', async () => {
+                await forceSync();
+            });
+        }
+
+
         // ルールカードのクリック処理
         ruleCards.forEach(card => {
             card.addEventListener('click', () => {
@@ -6616,20 +6728,28 @@
                 if (playMode === 'local') {
                     // ローカルプレイ
                     initGameByRule();
+                    // 同期ボタンを非表示
+                    if (manualSyncBtn) manualSyncBtn.style.display = 'none';
                 } else if (playMode === 'create') {
                     // 部屋作成 - まずゲーム画面を初期化してマッチング待機画面を表示
                     window.initGame();
                     showMatchingOverlay(rule);
+                    // 同期ボタンを表示
+                    if (manualSyncBtn) manualSyncBtn.style.display = 'block';
                 } else if (playMode === 'join') {
                     // 部屋参加 - 参加画面を表示
                     window.initGame();
                     showJoinOverlay(rule);
+                    // 同期ボタンを表示
+                    if (manualSyncBtn) manualSyncBtn.style.display = 'block';
                 } else if (playMode === 'spectate') {
                     // 観戦
                     window.initGame();
                     const watchTab = document.querySelector('[data-tab="watch-tab"]');
                     if (watchTab) watchTab.click();
                     window.showToast(`ルール: ${getRuleName(rule)}の対局を観戦`, 'info');
+                    // 同期ボタンを表示
+                    if (manualSyncBtn) manualSyncBtn.style.display = 'block';
                 }
             });
         });
