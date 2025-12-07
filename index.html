@@ -4752,9 +4752,24 @@
             }
 
             // 2人になったら開始、state購読でUI同期
+            // リスナー管理用変数
+            let stateListenerRef = null;
+            let legacyListenerRef = null;
+            let connectionListenerActive = false;
+
             async function attachGameListeners(gameId) {
                 await ensureAnonAuth();
                 const gameRef = firebase.database().ref(`games/${gameId}`);
+
+                // 既存リスナーを解除（重複防止）
+                if (stateListenerRef) {
+                    stateListenerRef.off();
+                    stateListenerRef = null;
+                }
+                if (legacyListenerRef) {
+                    legacyListenerRef.off();
+                    legacyListenerRef = null;
+                }
 
                 // players 監視: 2人揃ったら開始処理 + 自分のrole反映
                 gameRef.child('players').on('value', async snap => {
@@ -4858,11 +4873,16 @@
                 });
 
                 // state 監視: UI反映・入力制御
-                gameRef.child('state').on('value', snap => {
+                stateListenerRef = gameRef.child('state');
+                stateListenerRef.on('value', snap => {
                     const st = snap.val();
                     if (!st) return;
 
-                    if (st.lastMoveId && st.lastMoveId === gameState.lastProcessedMoveId) {
+                    // 改善: lastMoveIdチェック（初回は必ず適用）
+                    const shouldSkip = st.lastMoveId &&
+                        gameState.lastProcessedMoveId &&
+                        st.lastMoveId === gameState.lastProcessedMoveId;
+                    if (shouldSkip) {
                         return;
                     }
                     if ('currentTurn' in st) gameState.currentTurn = st.currentTurn;
@@ -4905,7 +4925,8 @@
                 });
 
                 // 互換: state が使えない環境向けにトップレベルも監視
-                gameRef.on('value', snap => {
+                legacyListenerRef = gameRef;
+                legacyListenerRef.on('value', snap => {
                     if (!snap.exists()) {
                         alert('ゲームルームが削除されました');
                         leaveGameRoom().catch(err => console.error('ルーム離脱処理に失敗しました', err));
@@ -4918,7 +4939,11 @@
                     const data = snap.val();
                     if (!data) return;
                     try {
-                        if (data.lastMoveId && data.lastMoveId === gameState.lastProcessedMoveId) {
+                        // 改善: lastMoveIdチェック（初回は必ず適用）
+                        const shouldSkip = data.lastMoveId &&
+                            gameState.lastProcessedMoveId &&
+                            data.lastMoveId === gameState.lastProcessedMoveId;
+                        if (shouldSkip) {
                             return;
                         }
                         if ('currentTurn' in data) gameState.currentTurn = data.currentTurn || gameState.currentTurn;
@@ -4962,6 +4987,25 @@
                         console.warn('レガシー状態の反映に失敗', e);
                     }
                 });
+
+                // 接続状態の監視（再接続時に自動同期）
+                if (!connectionListenerActive) {
+                    connectionListenerActive = true;
+                    database.ref('.info/connected').on('value', snap => {
+                        if (snap.val() === true) {
+                            console.log('Firebase接続復帰');
+                            // 再接続時に強制同期
+                            if (isOnlineGame && gameId) {
+                                setTimeout(() => {
+                                    forceSync();
+                                    console.log('再接続時の自動同期を実行');
+                                }, 500);
+                            }
+                        } else {
+                            console.log('Firebase接続が切断されました');
+                        }
+                    });
+                }
 
                 isOnlineGame = true;
             }
