@@ -4938,13 +4938,21 @@
 
                 // 互換: state が使えない環境向けにトップレベルも監視
                 legacyListenerRef = gameRef;
+                let gameNotFoundCount = 0; // 連続でゲームが見つからなかった回数
                 legacyListenerRef.on('value', snap => {
                     if (!snap.exists()) {
-                        alert('ゲームルームが削除されました');
-                        leaveGameRoom().catch(err => console.error('ルーム離脱処理に失敗しました', err));
-                        initGame();
+                        gameNotFoundCount++;
+                        console.warn(`ゲームデータが見つかりません (${gameNotFoundCount}回目)`);
+                        // 3回連続でゲームが見つからなかった場合のみタイトルに戻る
+                        if (gameNotFoundCount >= 3) {
+                            alert('ゲームルームが削除されました');
+                            leaveGameRoom().catch(err => console.error('ルーム離脱処理に失敗しました', err));
+                            initGame();
+                        }
                         return;
                     }
+                    // ゲームが見つかったらカウントをリセット
+                    gameNotFoundCount = 0;
 
                     const st = snap.child('state').val();
                     if (st) return; // state が使えているならこちらは不要
