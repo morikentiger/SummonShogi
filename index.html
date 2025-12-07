@@ -4449,8 +4449,12 @@
                 await ensureAnonAuth();
                 database.ref(`games/${gameId}/rematch`).remove();
 
-                // 新しいゲームを開始（ただし同じ部屋）
-                initGame();
+                // 配置データをクリア（デッキルール用）
+                database.ref(`games/${gameId}/placement`).remove();
+
+                // ゲームのルールを取得
+                const ruleSnapshot = await database.ref(`games/${gameId}/rule`).once('value');
+                const gameRule = ruleSnapshot.val() || 'classic';
 
                 // 役割を入れ替え（先手・後手を交代）
                 const previousRole = playerRole;
@@ -4478,8 +4482,16 @@
                     });
                 }
 
-                // ゲーム状態をFirebaseに初期化
-                syncGameState();
+                // ルールに応じて適切な初期化関数を呼ぶ
+                if (gameRule === 'deck') {
+                    // デッキルール: initDeckGameで配置フェーズに戻る
+                    initDeckGame();
+                } else {
+                    // クラシック: 通常のinitGame
+                    initGame();
+                    // ゲーム状態をFirebaseに初期化
+                    syncGameState();
+                }
 
                 // リマッチコントロールを更新
                 setTimeout(() => {
