@@ -7597,7 +7597,6 @@
         // 配置データからゲームを開始
         function startGameFromPlacementData(placement) {
             // 盤面をクリア
-            // 盤面をクリア
             gameState.board = Array(9).fill(null).map(() => Array(9).fill(null));
 
             // 王将と玉将を再配置（ボードクリアで消えるため）
@@ -7625,6 +7624,11 @@
             // 待機表示を消す
             const waitingOverlay = document.getElementById('game-waiting-overlay');
             if (waitingOverlay) waitingOverlay.classList.add('hidden');
+
+            // 盤面を描画（相手の駒も表示）
+            renderBoard();
+            renderHands();
+            updateStatus();
 
             showToast('両者の配置が完了しました！', 'success');
             showGameStartScreen();
