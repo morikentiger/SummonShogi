@@ -7687,6 +7687,13 @@
             window.renderHands();
             window.updateStatus();
 
+            // オンライン対戦の場合、ゲーム開始時の状態をFirebaseに同期
+            const isOnline = window.getIsOnlineGame ? window.getIsOnlineGame() : false;
+            if (isOnline && typeof syncGameState === 'function') {
+                syncGameState();
+                console.log('Initial game state synced to Firebase');
+            }
+
             console.log('Game started, current turn:', gameState.currentTurn);
         }
 
