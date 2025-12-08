@@ -5177,6 +5177,14 @@
             // ゲーム状態をFirebaseに同期（state 下へフラット保存）
             async function syncGameState() {
                 if (!isOnlineGame || !gameId || isSpectator) return;
+
+                // 重要: 自分のターンでない場合は同期しない（相手の状態を上書きするのを防ぐ）
+                // ただしゲーム終了時は勝者が同期する必要がある
+                if (!gameState.gameOver && !isMyTurn()) {
+                    console.log('Not my turn, skipping sync to prevent overwriting opponent state');
+                    return;
+                }
+
                 await ensureAnonAuth();
                 const boardData = serializeBoard(gameState.board);
                 const st = {
