@@ -7322,74 +7322,83 @@
 
         // オンライン対戦用のデッキ初期化とFirebase同期
         async function initOnlineDeckSetup(isCreator) {
-            const gameState = window.gameState;
-            const gameId = window.getGameId();
-            const database = window.firebase.database();
+            console.log('initOnlineDeckSetup called, isCreator:', isCreator);
 
-            if (isCreator) {
-                // 作成者: 両者の駒を引いてFirebaseに保存
-                const sentePieces = drawFromPlayerPool('sente', 3);
-                const gotePieces = drawFromPlayerPool('gote', 3);
+            try {
+                const gameState = window.gameState;
+                const gameId = window.getGameId();
+                const database = window.firebase.database();
 
-                const senteCost = calculateHandCost(sentePieces);
-                const goteCost = calculateHandCost(gotePieces);
+                console.log('gameId:', gameId, 'database:', !!database);
 
-                // コストが低い方が先攻
-                const firstPlayer = senteCost <= goteCost ? 'sente' : 'gote';
+                if (isCreator) {
+                    // 作成者: 両者の駒を引いてFirebaseに保存
+                    const sentePieces = drawFromPlayerPool('sente', 3);
+                    const gotePieces = drawFromPlayerPool('gote', 3);
 
-                console.log('Deck setup:', {
-                    sentePieces, senteCost,
-                    gotePieces, goteCost,
-                    firstPlayer
-                });
+                    const senteCost = calculateHandCost(sentePieces);
+                    const goteCost = calculateHandCost(gotePieces);
 
-                // Firebaseに保存
-                await database.ref(`games/${gameId}/decks`).set({
-                    sente: {
-                        drawnPieces: sentePieces,
-                        cost: senteCost,
-                        pool: gameState.sentePool
-                    },
-                    gote: {
-                        drawnPieces: gotePieces,
-                        cost: goteCost,
-                        pool: gameState.gotePool
-                    },
-                    firstPlayer: firstPlayer
-                });
+                    // コストが低い方が先攻
+                    const firstPlayer = senteCost <= goteCost ? 'sente' : 'gote';
 
-                // ローカル状態を更新
-                gameState.firstPlayer = firstPlayer;
-                gameState.currentTurn = firstPlayer;
-                gameState.drawnPieces = sentePieces; // 作成者は先手
+                    console.log('Deck setup:', {
+                        sentePieces, senteCost,
+                        gotePieces, goteCost,
+                        firstPlayer
+                    });
 
-                return { sentePieces, gotePieces, firstPlayer, senteCost, goteCost };
-            } else {
-                // 参加者: Firebaseからデッキ情報を取得
-                const snapshot = await database.ref(`games/${gameId}/decks`).once('value');
-                const decks = snapshot.val();
+                    // Firebaseに保存
+                    await database.ref(`games/${gameId}/decks`).set({
+                        sente: {
+                            drawnPieces: sentePieces,
+                            cost: senteCost,
+                            pool: gameState.sentePool
+                        },
+                        gote: {
+                            drawnPieces: gotePieces,
+                            cost: goteCost,
+                            pool: gameState.gotePool
+                        },
+                        firstPlayer: firstPlayer
+                    });
 
-                if (!decks) {
-                    console.error('Deck info not found in Firebase');
-                    return null;
+                    // ローカル状態を更新
+                    gameState.firstPlayer = firstPlayer;
+                    gameState.currentTurn = firstPlayer;
+                    gameState.drawnPieces = sentePieces; // 作成者は先手
+
+                    return { sentePieces, gotePieces, firstPlayer, senteCost, goteCost };
+                } else {
+                    // 参加者: Firebaseからデッキ情報を取得
+                    const snapshot = await database.ref(`games/${gameId}/decks`).once('value');
+                    const decks = snapshot.val();
+
+                    if (!decks) {
+                        console.error('Deck info not found in Firebase');
+                        return null;
+                    }
+
+                    // ローカル状態を更新
+                    gameState.sentePool = decks.sente.pool || [];
+                    gameState.gotePool = decks.gote.pool || [];
+                    gameState.firstPlayer = decks.firstPlayer;
+                    gameState.currentTurn = decks.firstPlayer;
+                    gameState.drawnPieces = decks.gote.drawnPieces; // 参加者は後手
+
+                    console.log('Received deck info:', decks);
+
+                    return {
+                        sentePieces: decks.sente.drawnPieces,
+                        gotePieces: decks.gote.drawnPieces,
+                        firstPlayer: decks.firstPlayer,
+                        senteCost: decks.sente.cost,
+                        goteCost: decks.gote.cost
+                    };
                 }
-
-                // ローカル状態を更新
-                gameState.sentePool = decks.sente.pool || [];
-                gameState.gotePool = decks.gote.pool || [];
-                gameState.firstPlayer = decks.firstPlayer;
-                gameState.currentTurn = decks.firstPlayer;
-                gameState.drawnPieces = decks.gote.drawnPieces; // 参加者は後手
-
-                console.log('Received deck info:', decks);
-
-                return {
-                    sentePieces: decks.sente.drawnPieces,
-                    gotePieces: decks.gote.drawnPieces,
-                    firstPlayer: decks.firstPlayer,
-                    senteCost: decks.sente.cost,
-                    goteCost: decks.gote.cost
-                };
+            } catch (error) {
+                console.error('initOnlineDeckSetup error:', error);
+                return null;
             }
         }
 
