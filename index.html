@@ -7247,6 +7247,9 @@
 
         // 配置フェーズを開始
         function startPlacementPhase(side) {
+            console.log('startPlacementPhase called with side:', side);
+            console.log('playerRole from window:', window.getPlayerRole ? window.getPlayerRole() : 'N/A');
+
             placementState.active = true;
             placementState.playerSide = side;
             placementState.placedPieces = [];
