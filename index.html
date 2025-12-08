@@ -4066,6 +4066,10 @@
 
             // 公開ゲームリストを更新
             function updatePublicGamesList(snapshot) {
+                if (!publicGamesListElement) {
+                    console.warn('publicGamesListElement is null, skipping update');
+                    return;
+                }
                 publicGamesListElement.innerHTML = '';
                 if (spectatorGamesListElement) spectatorGamesListElement.innerHTML = '';
                 publicGamesData = [];
@@ -5239,6 +5243,13 @@
                     lastUpdate: Date.now()
                 };
                 await database.ref(`games/${gameId}`).update(legacy);
+                console.log('Game state synced to Firebase successfully:', {
+                    currentTurn: gameState.currentTurn,
+                    senteHand: gameState.senteHand.length,
+                    goteHand: gameState.goteHand.length,
+                    summonPool: gameState.summonPool.length,
+                    lastMoveId: gameState.lastMoveId
+                });
             }
 
             // 自分のターンかどうかを確認
