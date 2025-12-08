@@ -5179,9 +5179,18 @@
                 if (!isOnlineGame || !gameId || isSpectator) return;
 
                 // 重要: 自分のターンでない場合は同期しない（相手の状態を上書きするのを防ぐ）
-                // ただしゲーム終了時は勝者が同期する必要がある
-                if (!gameState.gameOver && !isMyTurn()) {
-                    console.log('Not my turn, skipping sync to prevent overwriting opponent state');
+                // ただしゲーム終了時は同期する必要がある
+                // playerRoleとcurrentTurnが一致しない場合はスキップ
+                const myRole = playerRole;
+                const currentPlayer = gameState.currentTurn;
+                const canSync = gameState.gameOver || (myRole && myRole === currentPlayer);
+
+                if (!canSync) {
+                    console.log('Skipping sync - not my turn:', {
+                        myRole,
+                        currentPlayer,
+                        gameOver: gameState.gameOver
+                    });
                     return;
                 }
 
@@ -6539,6 +6548,12 @@
 
                 // オンライン対戦時は自分のターンのみ操作可能
                 if (isOnlineGame && !isMyTurn()) {
+                    console.log("召喚できない - 自分のターンではない:", {
+                        "isOnlineGame": isOnlineGame,
+                        "playerRole": playerRole,
+                        "currentTurn": gameState.currentTurn,
+                        "isMyTurn": isMyTurn()
+                    });
                     return;
                 }
 
