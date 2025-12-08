@@ -7294,11 +7294,22 @@
             if (placementInfoEl) placementInfoEl.style.display = 'none';
 
             // 交代確認画面を設定
-            const playerName = side === 'sente' ? '先手' : '後手';
-            const opponentName = side === 'sente' ? '後手' : '先手';
+            // オンラインプレイの場合は「あなた」「相手」と表示（先手/後手は実際の手番で決まるため）
+            const isOnline = window.getIsOnlineGame ? window.getIsOnlineGame() : false;
 
-            switchPlayerName.textContent = `${opponentName}さん`;
-            switchMessage.textContent = `${playerName}の番です。${playerName}プレイヤーは「準備OK」を押してください。`;
+            let playerName, opponentName, message;
+            if (isOnline) {
+                playerName = 'あなた';
+                opponentName = '相手';
+                message = '駒を配置してください。配置コストが低い方が先攻になります。';
+            } else {
+                playerName = side === 'sente' ? '先手' : '後手';
+                opponentName = side === 'sente' ? '後手' : '先手';
+                message = `${playerName}の番です。${playerName}プレイヤーは「準備OK」を押してください。`;
+            }
+
+            switchPlayerName.textContent = isOnline ? '' : `${opponentName}さん`;
+            switchMessage.textContent = message;
 
             // 交代確認画面を表示
             if (switchScreen) {
