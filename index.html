@@ -2996,7 +2996,11 @@
                 board: Array.from({ length: 9 }, () => Array(9).fill(null)),
                 senteHand: [],
                 goteHand: [],
-                summonPool: [],
+                summonPool: [],       // 共有プール（後方互換用、ローカルプレイで使用）
+                sentePool: [],        // 先手の召喚プール
+                gotePool: [],         // 後手の召喚プール
+                drawnPieces: [],      // 配置用に引いた3枚
+                firstPlayer: null,    // コストで決まった先攻プレイヤー
                 hasSummoned: false,
                 mustPlaceLastSummoned: false,
                 lastSummonedPiece: null,
@@ -4868,6 +4872,9 @@
                     if ('senteHand' in st) gameState.senteHand = normalizeList(st.senteHand);
                     if ('goteHand' in st) gameState.goteHand = normalizeList(st.goteHand);
                     if ('summonPool' in st) gameState.summonPool = normalizeList(st.summonPool);
+                    if ('sentePool' in st) gameState.sentePool = normalizeList(st.sentePool);
+                    if ('gotePool' in st) gameState.gotePool = normalizeList(st.gotePool);
+                    if ('firstPlayer' in st) gameState.firstPlayer = st.firstPlayer || null;
                     if ('hasSummoned' in st) gameState.hasSummoned = !!st.hasSummoned;
                     if ('mustPlaceLastSummoned' in st) gameState.mustPlaceLastSummoned = !!st.mustPlaceLastSummoned;
                     if ('lastSummonedPiece' in st) gameState.lastSummonedPiece = st.lastSummonedPiece || null;
@@ -5206,6 +5213,9 @@
                     senteHand: gameState.senteHand,
                     goteHand: gameState.goteHand,
                     summonPool: gameState.summonPool,
+                    sentePool: gameState.sentePool,     // 先手の召喚プール
+                    gotePool: gameState.gotePool,       // 後手の召喚プール
+                    firstPlayer: gameState.firstPlayer, // 先攻プレイヤー
                     hasSummoned: gameState.hasSummoned,
                     mustPlaceLastSummoned: gameState.mustPlaceLastSummoned,
                     lastSummonedPiece: gameState.lastSummonedPiece,
@@ -6547,10 +6557,16 @@
 
             // 召喚の処理
             function summonPiece() {
-                if (gameState.summonPool.length === 0 || gameState.hasSummoned || gameState.gameOver) {
+                // オンラインの場合はプレイヤー別のプールを使用
+                const currentPlayer = gameState.currentTurn;
+                const pool = isOnlineGame
+                    ? (currentPlayer === 'sente' ? gameState.sentePool : gameState.gotePool)
+                    : gameState.summonPool;
+
+                if (pool.length === 0 || gameState.hasSummoned || gameState.gameOver) {
                     // もう一度召喚できない理由をログに出力（デバッグ用）
                     console.log("召喚できない理由:", {
-                        "プールが空": gameState.summonPool.length === 0,
+                        "プールが空": pool.length === 0,
                         "すでに召喚済み": gameState.hasSummoned,
                         "ゲーム終了": gameState.gameOver
                     });
@@ -6569,11 +6585,11 @@
                 }
 
                 // ランダムに一つ選ぶ
-                const randomIndex = Math.floor(Math.random() * gameState.summonPool.length);
-                const piece = gameState.summonPool[randomIndex];
+                const randomIndex = Math.floor(Math.random() * pool.length);
+                const piece = pool[randomIndex];
 
                 // 召喚プールから削除
-                gameState.summonPool.splice(randomIndex, 1);
+                pool.splice(randomIndex, 1);
 
                 // 持ち駒に追加
                 addPieceToHand(gameState.currentTurn, piece);
@@ -6962,17 +6978,29 @@
                         matchingStatusText.textContent = '対戦相手が見つかりました！';
 
                         // 少し待ってから配置フェーズへ
-                        setTimeout(() => {
+                        setTimeout(async () => {
                             hideMatchingOverlay();
 
                             // グローバル変数を設定
                             window.setGameId(matchingGameId);
                             window.setIsOnlineGame(true);
-                            window.setPlayerRole('sente'); // 作成者は先手
+                            window.setPlayerRole('sente'); // 作成者は先手側
 
-                            // デッキルールの場合は配置フェーズへ
+                            // デッキルールの場合
                             if (rule === 'deck') {
                                 initDeckGame();
+
+                                // デッキをセットアップしてFirebaseに保存
+                                const deckInfo = await initOnlineDeckSetup(true);
+
+                                if (deckInfo) {
+                                    // 先手後手を表示
+                                    const isFirstPlayer = deckInfo.firstPlayer === 'sente';
+                                    const turnMsg = isFirstPlayer
+                                        ? `あなたは先攻です！（コスト: ${deckInfo.senteCost} vs ${deckInfo.goteCost}）`
+                                        : `あなたは後攻です（コスト: ${deckInfo.senteCost} vs ${deckInfo.goteCost}）`;
+                                    window.showToast(turnMsg, isFirstPlayer ? 'success' : 'info');
+                                }
                             } else {
                                 window.initGame();
                             }
@@ -6983,8 +7011,8 @@
                                 console.log('Turn indicator updated after opponent joined');
                             }
 
-                            // ゲーム状態をオンラインに設定（メインスクリプトの変数を更新できないので、window経由で同期）
-                            window.showToast('対戦相手が見つかりました！ゲーム開始！', 'success');
+                            // ゲーム状態をオンラインに設定
+                            window.showToast('対戦相手が見つかりました！', 'success');
                         }, 1000);
                     }
                 });
@@ -7111,11 +7139,23 @@
                     // グローバル変数を設定
                     window.setGameId(code);
                     window.setIsOnlineGame(true);
-                    window.setPlayerRole('gote'); // 参加者は後手
+                    window.setPlayerRole('gote'); // 参加者は後手側
 
-                    // デッキルールの場合は配置フェーズへ
+                    // デッキルールの場合
                     if (joinSelectedRule === 'deck') {
                         initDeckGame();
+
+                        // Firebaseからデッキ情報を取得
+                        const deckInfo = await initOnlineDeckSetup(false);
+
+                        if (deckInfo) {
+                            // 先手後手を表示
+                            const isFirstPlayer = deckInfo.firstPlayer === 'gote';
+                            const turnMsg = isFirstPlayer
+                                ? `あなたは先攻です！（コスト: ${deckInfo.goteCost} vs ${deckInfo.senteCost}）`
+                                : `あなたは後攻です（コスト: ${deckInfo.goteCost} vs ${deckInfo.senteCost}）`;
+                            window.showToast(turnMsg, isFirstPlayer ? 'success' : 'info');
+                        }
                     } else {
                         window.initGame();
                     }
@@ -7150,6 +7190,11 @@
             '歩': 1, '香': 3, '桂': 3,
             '銀': 5, '金': 6, '角': 8, '飛': 10
         };
+
+        // 駒配列のコストを計算
+        function calculateHandCost(pieces) {
+            return pieces.reduce((sum, piece) => sum + (pieceCosts[piece] || 0), 0);
+        }
 
         // 配置フェーズの状態
         let placementState = {
@@ -7191,14 +7236,29 @@
             gameState.inCheck = { sente: false, gote: false };
             gameState.lastMove = null;
             gameState.pendingPromotion = null;
-            gameState.summonPool = [];
 
-            // 召喚プールを初期化（デッキルール用）
-            for (const [piece, info] of Object.entries(pieceTypes)) {
-                for (let i = 0; i < info.count; i++) {
-                    gameState.summonPool.push(piece);
+            // プール・デッキ関連をリセット
+            gameState.summonPool = [];  // 後方互換用（ローカルプレイで使用）
+            gameState.sentePool = [];   // 先手の召喚プール
+            gameState.gotePool = [];    // 後手の召喚プール
+            gameState.drawnPieces = []; // 配置用に引いた駒
+            gameState.firstPlayer = null; // 先攻プレイヤー
+
+            // 各プレイヤーの召喚プールを初期化（同じ構成）
+            const createPool = () => {
+                const pool = [];
+                for (const [piece, info] of Object.entries(pieceTypes)) {
+                    for (let i = 0; i < info.count; i++) {
+                        pool.push(piece);
+                    }
                 }
-            }
+                return pool;
+            };
+
+            gameState.sentePool = createPool();
+            gameState.gotePool = createPool();
+            // 後方互換用に共有プールも初期化（ローカルプレイ用）
+            gameState.summonPool = createPool();
 
             // 王将と玉将を初期配置
             gameState.board[8][4] = createPiece('王', 'sente');
@@ -7223,7 +7283,7 @@
             }
         }
 
-        // ランダムに駒を引く
+        // ランダムに駒を引く（後方互換用 - ローカルプレイで使用）
         function drawRandomPieces(count) {
             const gameState = window.gameState;
             const drawn = [];
@@ -7243,6 +7303,94 @@
             }
 
             return drawn;
+        }
+
+        // プレイヤー別のプールから駒を引く（オンラインプレイ用）
+        function drawFromPlayerPool(playerRole, count) {
+            const gameState = window.gameState;
+            const pool = playerRole === 'sente' ? gameState.sentePool : gameState.gotePool;
+            const drawn = [];
+
+            for (let i = 0; i < count && pool.length > 0; i++) {
+                const index = Math.floor(Math.random() * pool.length);
+                drawn.push(pool.splice(index, 1)[0]);
+            }
+
+            console.log(`${playerRole} drew pieces:`, drawn, 'Remaining pool:', pool.length);
+            return drawn;
+        }
+
+        // オンライン対戦用のデッキ初期化とFirebase同期
+        async function initOnlineDeckSetup(isCreator) {
+            const gameState = window.gameState;
+            const gameId = window.getGameId();
+            const database = window.firebase.database();
+
+            if (isCreator) {
+                // 作成者: 両者の駒を引いてFirebaseに保存
+                const sentePieces = drawFromPlayerPool('sente', 3);
+                const gotePieces = drawFromPlayerPool('gote', 3);
+
+                const senteCost = calculateHandCost(sentePieces);
+                const goteCost = calculateHandCost(gotePieces);
+
+                // コストが低い方が先攻
+                const firstPlayer = senteCost <= goteCost ? 'sente' : 'gote';
+
+                console.log('Deck setup:', {
+                    sentePieces, senteCost,
+                    gotePieces, goteCost,
+                    firstPlayer
+                });
+
+                // Firebaseに保存
+                await database.ref(`games/${gameId}/decks`).set({
+                    sente: {
+                        drawnPieces: sentePieces,
+                        cost: senteCost,
+                        pool: gameState.sentePool
+                    },
+                    gote: {
+                        drawnPieces: gotePieces,
+                        cost: goteCost,
+                        pool: gameState.gotePool
+                    },
+                    firstPlayer: firstPlayer
+                });
+
+                // ローカル状態を更新
+                gameState.firstPlayer = firstPlayer;
+                gameState.currentTurn = firstPlayer;
+                gameState.drawnPieces = sentePieces; // 作成者は先手
+
+                return { sentePieces, gotePieces, firstPlayer, senteCost, goteCost };
+            } else {
+                // 参加者: Firebaseからデッキ情報を取得
+                const snapshot = await database.ref(`games/${gameId}/decks`).once('value');
+                const decks = snapshot.val();
+
+                if (!decks) {
+                    console.error('Deck info not found in Firebase');
+                    return null;
+                }
+
+                // ローカル状態を更新
+                gameState.sentePool = decks.sente.pool || [];
+                gameState.gotePool = decks.gote.pool || [];
+                gameState.firstPlayer = decks.firstPlayer;
+                gameState.currentTurn = decks.firstPlayer;
+                gameState.drawnPieces = decks.gote.drawnPieces; // 参加者は後手
+
+                console.log('Received deck info:', decks);
+
+                return {
+                    sentePieces: decks.sente.drawnPieces,
+                    gotePieces: decks.gote.drawnPieces,
+                    firstPlayer: decks.firstPlayer,
+                    senteCost: decks.sente.cost,
+                    goteCost: decks.gote.cost
+                };
+            }
         }
 
         // 配置フェーズを開始
@@ -7335,8 +7483,18 @@
                 }
 
                 // 駒を引いて配置フェーズを本格開始
-                // 駒を引いて配置フェーズを本格開始
-                placementState.hand = drawRandomPieces(3);
+                // オンラインの場合は既に引いた駒を使用、ローカルは新たに引く
+                const isOnline = window.getIsOnlineGame ? window.getIsOnlineGame() : false;
+                const gameState = window.gameState;
+
+                if (isOnline && gameState.drawnPieces && gameState.drawnPieces.length > 0) {
+                    // オンライン: 既にinitOnlineDeckSetupで引いた駒を使用
+                    placementState.hand = [...gameState.drawnPieces];
+                    console.log('Using pre-drawn pieces:', placementState.hand);
+                } else {
+                    // ローカル: 新しく駒を引く
+                    placementState.hand = drawRandomPieces(3);
+                }
                 placementWaiting.classList.remove('active');
 
                 // 手札を描画
